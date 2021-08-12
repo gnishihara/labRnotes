@@ -1,0 +1,1251 @@
+---
+title: '基礎統計学解析 `r fontawesome::fa(name = "r-project")` マニュアル'
+subtitle: "マニュアルを随時更新します"  
+author: 
+  - "GN Nishihara"
+date: '更新日：`r Sys.Date()`'
+output:
+  xaringan::moon_reader:
+    css: xaringan-themer.css
+    nature:
+      slideNumberFormat: "%current% / %total%"
+      highlightStyle: "monokai"
+      highlightLines: true
+      ratio: 16:9
+      countIncrementalSlides: false
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE, width = 200)
+knitr::opts_chunk$set(
+  fig.width=9, fig.height=3, fig.retina=3,
+  out.width = "100%",
+  cache = FALSE,
+  echo = TRUE,
+  message = FALSE, 
+  warning = FALSE,
+  hiline = TRUE
+)
+Sys.setlocale("LC_TIME", "en_US.UTF-8") # This is to set the server time locate to en_US.UTF-8
+```
+
+```{r xaringan-themer, include=FALSE, warning=FALSE}
+library(xaringanthemer)
+style_solarized_dark(
+  code_font_family = "Fira Code",
+  code_font_url = "https://cdn.jsdelivr.net/gh/tonsky/FiraCode@2/distr/fira_code.css"
+)
+
+library(xaringanExtra)
+xaringanExtra::use_xaringan_extra(c("tile_view", "animate_css", "tachyons", "panelset"))
+xaringanExtra::use_extra_styles(
+  hover_code_line = T
+)
+xaringanthemer::style_extra_css(
+  css = list(".small .remark-code" = list("font-size" = "0.6rem"),
+             "li" = list(margin = "10px 0"),
+             ".title-slide h3" = list(color = "#006fc5"))
+)
+library(magick)
+library(ggpubr)
+library(fontawesome)
+pm = function(x, y) {
+  sprintf("%0.2f ± %0.2f", x, y)
+}
+
+pval = function(x) {
+  if (x < 0.0001) {
+    "P < 0.0001"
+  } else {
+    sprintf("P = %0.4f", x)
+  }
+}
+```
+
+
+## このマニュアルについて
+
+解析の背景については講義で紹介した内容を参考にしてください。
+
+スライドごとのコードは独立していないので、注意してください。
+コードの順序を無視してコピペすると、バグ (bug) が発生します。
+
+**重要** このマニュアルは `r fa(name = "r-project")` 環境における解析のコードを説明するためのものです。
+このマニュアルだけだと、統計解析はできるが、結果の理解には不十分です。
+最後に、マニュアルは随時更新するので、タイトルに記述した更新日を時々確認してね。
+わからないことまたは間違いがあれば、[メール](greg@nagasaki-u.ac.jp)で連絡ください。 
+
+&mdash; **greg (`r lubridate::today()`)**
+
+---
+
+## 目次
+
+* [パッケージの読み込みなど](#load-packages)
+* [データの読み込み](#read-data)
+* [データ構造の処理と結合](#pivot-data)
+* [データの可視化・作図](#data-visualization)
+* [等分散性と正規性の検定](#homogeneity-normality)
+* [t検定](#t-test)
+* [一元配置分散分析](#anova)
+* [二元配置分散分析](#two-way-anova)
+* [診断図](#diagnostic-plots)
+* [変換して解析](#transform)
+項目をクリックすると関係するスライドに飛びます。
+
+---
+name: load-packages
+
+## パッケージの読み込み
+
+マニュアルに紹介しているコードは、ベース `r fa(name = "r-project")` 以外の関数を使っています。
+次のパッケージを必ず読み込んでください。
+
+```{r, eval = T}
+library(tidyverse)  # データの操作・処理・作図用メタパッケージ
+library(readxl)     # xlsx ファイルの読み込み用のパッケージ
+library(lubridate)  # 時刻データ用のパッケージ
+library(emmeans)    # 多重比較用のパッケージ
+library(car)        # 多重比較・Type III 平方和を用いた分散分析
+```
+
+---
+
+## パッケージのインストール
+
+パッケージがインストールされていないなら、`install.packages()` でインストールできます。
+たとえば、`tidyverse` のインストールはつぎのコードを実行しましょう。
+
+```{r, eval = F}
+install.packages("tidyverse")
+```
+
+---
+class: center, middle, inverse
+
+# データの読み込み
+
+---
+
+## 使用するデータ
+
+データは環境省の「瀬戸内海における藻場・干潟分布状況調査（概要）」からまとめました。
+もとのファイルは[環境省平成３０年９月スライドデッキ](http://www.env.go.jp/water/totalresult.pdf) からダウンロードできます。
+
+では、XLSXファイルに存在するシートの確認をしましょう。
+
+```{r, eval = FALSE}
+filename = '瀬戸内海藻場データ.xlsx'
+excel_sheets(filename) # シート名を確認する
+```
+
+```{r, echo = FALSE}
+filename = rprojroot::find_rstudio_root_file("kisotokei/瀬戸内海藻場データ.xlsx")
+excel_sheets(filename) # シート名を確認する
+```
+
+`excel_sheets()` を実行したら、ファイルから 2 つのシート名が返ってきました。
+
+読み込む前に、それぞれのシートの構造を確認しましょう。
+
+---
+
+## FY1990 シートのデータ構造
+
+.pull-left[
+```{r seto1, echo = F}
+pngfile = rprojroot::find_rstudio_root_file("kisotokei/") |> dir(pattern = "seto*.*png", full = TRUE)
+image_read(pngfile[1])
+```
+]
+
+.pull-right[
+`r str_glue("{basename(filename)} の FY1990 シートに入力されているデータは縦長の形式です。")`
+
+FY1990 のデータの構造は縦長なので、読み込みは比較的に楽です。
+それぞれの変数は一つの列に入力されているから、読み込みが簡単です。
+
+**原則として一行に 1 サンプル、一列に 1 変数にしましょう。**
+]
+
+---
+
+## FY2018 シートのデータ構造
+
+.pull-left[
+```{r seto2, echo = F, fig.cap = cap}
+cap = str_glue("{basename(filename)} の FY2018 シートに入力されているデータは横長の形式です。")
+image_read(pngfile[2])
+```
+]
+
+.pull-right[
+FY2018 のデータの構造は横長です。
+データは海藻と海草にわけられ、それぞれの変数じゃなくて、それぞれの場所の値を列に入力されています。
+この用なデータの読み込みは手間がかかります。
+
+**一行に複数サンプルがあるので、そのまま R の関数にわたせない。**
+]
+
+---
+name: read-data
+
+## FY1990データを読み込む（１）
+
+では、**FY1990 シート**のデータを読み込みます。
+ここでシートから読み込むセルの範囲を指定します。
+
+```{r}
+RNG = "A4:C27"   # セルの範囲
+SHEET = "FY1990" # シート名
+d19 = read_xlsx(filename, sheet = SHEET, range = RNG)
+```
+
+データは `tibble` として読み込まれました。
+データに大きな問題がなければ、各列の型・タイプ (type) は自動的に設定されます。
+
+
+* `調査海域` の列は `<chr>` : character, 文字列
+* `海藻` の列は `<dbl>`: double, ダブル・数値・実数
+* `海草` の列は `<dbl>`: double, ダブル・数値・実数
+
+他に: `<lgl>` logical、 論理値；`<int>` integer、 整数；`<dttm>` datetime、日時 などもあります。 
+
+---
+
+## FY1990データの読み込み（２）
+
+変数名が日本語の場合、コードが書きづらくなり、バグ (bug) の原因になります。
+最初から英語表記にするのが合理的ですが、R環境内で名前を変換することは難しくないです。
+とりあえず `d19` の内容を確認しましょう。
+
+.pull-left[
+
+```{r}
+d19 # FY1990 データの内容
+```
+]
+
+.pull-right[
+* `tibble` の構造は23行3列
+* デフォルトとして、最初の10行だけ表示されます
+* `...with 13 more rows` は他に13行あるといみします
+
+]
+---
+
+## FY2018データを読み込む（１）
+
+**FY2018 シート**の読み込みは、海藻と海草ごとにする必要があります。
+読み込んだ後に、データを縦長に変換し、2 つの `tibble` を縦に結合します。
+
+```{r}
+RNG = "A6:C15"   # 海藻データのセル範囲
+SHEET = "FY2018" # シート名
+seaweed = read_xlsx(filename, sheet = SHEET, range = RNG)
+RNG = "E6:G15"   # 海草データのセル範囲
+seagrass = read_xlsx(filename, sheet = SHEET, range = RNG)
+```
+
+---
+
+## FY2018データを読み込む（２）
+
+最初のセル範囲を読み込んで ファイルのコンテンツを `seaweed` に書き込んだら、`RNG` を次のセル範囲に書き換えます。
+データは同じシートにあるので、`SHEET` を変更したり、新たに定義する必要はありません。
+
+.pull-left[
+`seaweed` の内容は次のとおりです。
+
+```{r}
+seaweed
+```
+]
+
+.pull-right[
+`seagrass` の内容は次のとおりです。
+
+```{r}
+seagrass
+```
+]
+
+`NA` は Not Available の諸略です。
+Rの場合、存在しないデータ (欠損値) は `NA` になります。
+
+
+---
+name: pivot-data
+
+## データの処理
+
+つぎは、FY2018シートの構造をFY1990シートと同じようにします。
+横長のデータを縦長に変換するには、`pivot_longer()` を使います。
+これは MS Excel の ピボットテーブル (pivot table) の機能と若干にています。
+
+```{r}
+# %>% と |> はパイプ演算子とよびます。
+# |> は R 4.1.0 から追加された、ネーティブのパイプ演算子です。
+# RStudio の設定を変えなければ、CTRL+SHIFT+M をしたら、%>% が入力されるとおもいます。
+# ネーティブパイプを使いたいなら、Tools -> Global Options -> Code に
+#   いって、Use native pipe operator のボックスにチェックを入れてください。
+# seaweed = seaweed %>% pivot_longer(cols = everything())
+seaweed = seaweed |> pivot_longer(cols = everything())
+seagrass = seagrass |> pivot_longer(cols = everything())
+```
+
+ここでの重要なポイントは、必ずピボットしたい列を指定することです。
+このとき、すべての列をピボットしたいので、`pivot_longer()` には `cols = everything()` をわたします。
+ピボットされた `seaweed` は次のとおりです。
+
+**重要** `|>` は `|` と `>` の2つの文字からできた記号です。
+三角にみえる記号は Fira Code というフォントのリガチャーの影響です。
+詳細は [綺麗に死ぬITエンジニア](https://s8a.jp/font-fira-code) と [tonsky/FiraCode](https://github.com/tonsky/FiraCode) へ。
+
+---
+
+## tibble を全て表示する
+
+`seaweed` を `print(n = Inf)` に渡すと、`tibble` 内容をすべて表示できます。
+出力が長いので、スライド内に収まりません。
+
+```{r}
+seaweed |> print(n = Inf)
+```
+
+---
+
+## tibble の結合
+
+.panelset[
+.panel[.panel-name[Source]
+では、次は `seaweed` と `seagrass` を縦に結合することです。
+複数の `tibble` を縦に結合するための関数は `bind_rows()` です。
+
+```{r}
+d20 = bind_rows(seaweed = seaweed, seagrass = seagrass, .id = "type")
+```
+
+`seaweed` に `seaweed`、`seagrass` に `seagrass` を渡します。
+さらに、`seaweed` と `seagrass` のラベルを `type` 変数に書き込みます。
+]
+
+.panel[.panel-name[Output]
+.pull-left[
+
+```{r}
+d20　# FY2018 データ
+```
+]
+.pull-right[
+* `d20` の行数は `seaweed` (`r nrow(seaweed)`) と `seagrass` (`r nrow(seagrass)`) の行数の和ですね。
+* 縦の結合したので、列数は変わりません。
+]
+]
+]
+
+---
+
+## d20 をピボットして d19 と結合
+
+では、`d20` を `type` ごとに `value` 変数を横にならべてたら、`d19` と全く同じ構造になります。
+
+```{r, warning=T, message=T}
+d20 = d20 |> pivot_wider(id_cols = name, names_from = type, values_from = value)
+```
+
+.pull-left[
+```{r}
+d20
+```
+ここで、`Warning: values are not uniquely identified` がでました。
+`Warning` (ウォーニング) だったのでコードは実行されましたが、
+`Error` （エラー）だったら、コードは実行されません。
+]
+
+.pull-right[
+それぞれのサンプル値の区別ができないと意味します。
+今回は重大な問題ではないので解析を続きます。
+
+ところが、`seaweed` と `seagrass` の変数 type は `<list>` ですね。
+それぞれの要素に `<dbl [9]>` と記述されています。
+各要素に 9つの値が入力されていると意味します。
+研究室では、`seaweed` と `seagrass` 変数は nested (ネスト) または、「たたまれている」と表現しています。
+では、この２つの変数を unnest (アンネスト) しましょう。
+]
+
+---
+
+## Unnest（アンネスト）
+
+.pull-left[
+アンネストするまえの `tibble`はこの用な構造でした。
+```{r}
+d20
+```
+
+]
+.pull-right[
+ネストされている変数をアンネストすると、内容が表にでてきます。
+```{r}
+d20 = d20 |> unnest(c(seaweed, seagrass))
+d20
+```
+]
+
+---
+
+## 変数名の変更と NA の除外
+
+さらに、`name` を `site` (調査海域) に変更します。
+
+```{r}
+d20 = d20 |> rename(site = name)
+```
+
+最後に、`d20` の `NA` データを外します。
+
+```{r}
+d20 = d20 |> drop_na() # NA を外す
+d20
+```
+
+---
+
+## データがにてきた
+
+これで、`d20` と `d19` は同じ構造になりました。
+
+.pull-left[
+```{r}
+d19
+```
+
+]
+
+.pull-right[
+```{r}
+d20
+```
+
+]
+
+
+
+---
+
+## 変数の修正
+
+では、`d19` の変数名を `rename()` を用いて英語に変えます。
+日本語の変数名は使いづらくて、バグの原因になることが多いので名前を変更します。
+
+解析をするまえに、`site` を要因 (因子) として設定します。
+`levels = c('東部', '中部', '西部')` は因子の順序を指定するためです。
+指定しなかった場合、アルファベット順やあいうえお順になります。
+
+```{r}
+d19 = d19 |> 
+  rename(site = 調査海域, seaweed = 海藻, seagrass = 海草) |> 
+  mutate(site = factor(site, levels = c('東部', '中部', '西部')))
+
+d20 = d20 |> 
+  mutate(site = factor(site, levels = c('東部', '中部', '西部')))
+```
+
+---
+
+## まとめ
+
+これで解析に使えるデータが完成しました。
+コードを一つのコードブロックにまとめました。
+最初から上手にデータを保存していたら、処理が楽になるのがわかるとおもいます。
+
+.small[
+
+```{r, eval = FALSE}
+filename = '瀬戸内海藻場データ.xlsx'
+
+# fy1990 の処理
+RNG = "A4:C27"   # セルの範囲
+SHEET = "FY1990" # シート名
+d19 = read_xlsx(filename, sheet = SHEET, range = RNG)
+d19 = d19 |> 
+  rename(site = 調査海域, seaweed = 海藻, seagrass = 海草) |> 
+  mutate(site = factor(site, levels = c('東部', '中部', '西部')))
+
+# fy2018の処理
+RNG = "A6:C15"   # 海藻データのセル範囲
+SHEET = "FY2018" # シート名
+seaweed = read_xlsx(filename, sheet = SHEET, range = RNG)
+RNG = "E6:G15"   # 海草データのセル範囲
+
+seagrass = read_xlsx(filename, sheet = SHEET, range = RNG)
+seaweed = seaweed |> pivot_longer(cols = everything())
+seagrass = seagrass |> pivot_longer(cols = everything())
+
+d20 = bind_rows(seaweed = seaweed, seagrass = seagrass, .id = "type")
+d20 = d20 |> pivot_wider(id_cols = name,
+                   names_from = type,
+                   values_from = value)
+d20 = d20 |> unnest(c(seaweed, seagrass)) |> rename(site = name) |> drop_na()
+d20 = d20 |> 
+  mutate(site = factor(site, levels = c('東部', '中部', '西部')))
+```
+]
+
+---
+class: center, middle, inverse
+name: data-visualization
+
+# データの可視化
+
+---
+
+## 藻場面積の図
+
+.panelset[
+.panel[.panel-name[Code]
+検定をする前には、必ずデータの作図や集計をしましょう。
+今回の観測値の単位はヘクタール (1 ha = 10,000 m<sup>2</sup>) です。
+
+```{r, eval = FALSE}
+# geom_point()：散布図
+# labs()：軸ラベルや図タイトルの記述
+ggplot(d19) + 
+  geom_point(aes(x = site, y = seaweed, color = site)) +
+  labs(x = '調査海域',
+       y = '藻場面積 (ha)',
+       color = '海域',
+       title = '1990年度海藻藻場面積')
+
+ggplot(d20) + 
+  geom_point(aes(x = site, y = seaweed, color = site)) +
+  labs(x = '調査海域',
+       y = '藻場面積 (ha)',
+       color = '海域',
+       title = '2018年度海藻藻場面積') 
+library(patchwork) 
+p1+p2
+```
+]
+.panel[.panel-name[Figure]
+藻場面積は 1990年度と 2018年度に大きな違いが見えています。 まず、1990年度の藻場面積は東部が低く、西部が高かった。 ところが、2018年度ではほとんどの海域における藻場面積は減少した。 とくに、西部の藻場面積は縮小した。 観測値のばらつきは海域によってことなり、1990年度では西部のばらつきが大きかったが、2018年度では中部のほうが大きかった。
+```{r, echo = FALSE}
+# geom_point()：散布図
+# labs()：軸ラベルや図タイトルの記述
+p1 = ggplot(d19) + 
+  geom_point(aes(x = site, y = seaweed, color = site)) +
+  labs(x = '調査海域',
+       y = '藻場面積 (ha)',
+       color = '海域',
+       title = '1990年度海藻藻場面積')
+
+p2 = ggplot(d20) + 
+  geom_point(aes(x = site, y = seaweed, color = site)) +
+  labs(x = '調査海域',
+       y = '藻場面積 (ha)',
+       color = '海域',
+       title = '2018年度海藻藻場面積') 
+library(patchwork) # 複数 ggplot2 を結合するためのパッケージ
+p1+p2
+```
+
+]
+
+]
+
+
+
+---
+name: visdata
+
+## 藻場面積のヒストグラム
+
+では、観測値を度数分布・ヒストグラム (histogram)としてみてみましょう。
+
+.panelset[
+
+```{r panelset = c(source="Code", output="Figure")}
+p1 = ggplot(d19) +
+  geom_histogram(aes(x = seaweed), bins = 20) +
+  labs(x = '藻場面積 (ha)',
+       y = '度数', 
+       title = '1990年度の度数分布')
+
+p2 = ggplot(d20) + 
+  geom_histogram(aes(x = seaweed), bins = 20)+
+  labs(x = '藻場面積 (ha)',
+       y = '度数',
+       title = '2018年度の度数分布')
+p1 + p2
+```
+]
+
+---
+
+## FY1990データの集計
+
+海藻藻場面積の平均値、標準偏差 (`se`)、分散 (`var`)、サンプル数 (`n`)、標準誤差 (`se`) を求めます。
+
+```{r, echo = FALSE}
+dsum = d19 |>  
+  group_by(site) |> 
+  summarise(across(c(seaweed),
+                   list(mean = mean, sd = sd, var = var, n = length))) |> 
+  mutate(seaweed_se = seaweed_sd / sqrt(seaweed_n))
+```
+
+```{r}
+# FY1990 の処理
+d19 |>  
+  group_by(site) |> 
+  summarise(across(c(seaweed), list(mean = mean, sd = sd, var = var, n = length))) |> 
+  mutate(seaweed_se = seaweed_sd / sqrt(seaweed_n))
+```
+
+---
+
+## FY2018データの集計
+
+```{r}
+# FY2018 の処理
+d20 |> 
+  group_by(site) |> 
+  summarise(across(c(seaweed), list(mean = mean, sd = sd, var = var, n = length))) |> 
+  mutate(seaweed_se = seaweed_sd / sqrt(seaweed_n))
+```
+
+---
+class: center, middle, inverse
+name: homogeneity-normality
+
+# 等分散性と正規性の事前検定
+
+```{r, echo=FALSE}
+l19 = leveneTest(seaweed ~ site, data = d19)
+l20 = leveneTest(seaweed ~ site, data = d20)
+s19 = shapiro.test(x = d19$seaweed)
+s20 = shapiro.test(x = d20$seaweed)
+```
+
+---
+
+## 等分散性と正規性の検定
+
+データの等分散性と正規性分の確認は、分散分析や一般化線形モデルなどの前にする一般的な解析です。
+
+* **等分散性 (homogeneity of variance)** の確認
+  - **ルビーン検定 (Levene's test)**
+  - **バートレット検定 (Bartlett's test)** (非正規性のデータに影響されやすい)
+  
+* **正規性 (normality)** の確認
+  - **シャピロウィルク検定 (Shapiro-Wilk Normality Test)**
+
+
+ルビーン検定の関数 `leveneTest()` は `car` パッケージにありますが、
+バートレット検定の関数 `bartlett.test()` とシャピロウィルク検定の関数 `shapiro.test()` はベース R にあります。
+
+**重要** 検定に頼るよりも、[診断図で判断したほうがいい](#diagnostic-plots)。
+---
+
+## FY1990 ルビーン検定
+
+ルビーン検定は 2 グループ以上の分散の**均質性 (homogeneity)** を検定するために使います。
+ルビーン検定の帰無仮説は「各群の分散は等しい」ですので、
+帰無仮説を棄却したら各グループの分散は均一ではありませんと考えられます。
+
+`car` パッケージを読み込んだら、検定を実行します。
+`leveneTest()` には `lm()` に渡したモデル式を同じ用に渡しましょう。
+
+```{r}
+leveneTest(seaweed ~ site, data = d19) # FY1990 の処理
+```
+
+等分散性検定の結果は **`r pval(l19[[3]][1])`** でしたので、有意水準が $\alpha = 0.05$ の場合、
+帰無仮説は棄却できません。
+`site`間の分散は均一だと考えられます。
+
+---
+
+## FY2018 ルビーン検定
+
+```{r}
+leveneTest(seaweed ~ site, data = d20) # FY2018 の処理
+```
+
+`FY2018` データの検定結果は **`r pval(l20[[3]][1])`** でした。
+このデータも`site`間分散は均一だと考えられます。
+
+ちなみに、ルビーン検定の統計量は F 値です。
+FY2018の結果について、F値は F<sub>(1,10)</sub> = `r sprintf("%2.2f", l20[[2]][1])`、
+P値は `r pval(l20[[3]][1])` でした。
+
+[図](#visdata) と集計表の結果と比べると予想外の検定結果でした。
+検定結果のP値だけで評価すると、等分散性に問題はなさそうですが、図表を確認したら、`site`間のばらつきははっきりしています。
+今回実施した検定の検出力は、データ数が足りないから弱かったんじゃないかなと思います。
+
+> 講義でも説明しましたが、P値は サンプル数に依存するので、サンプル数が増えれば、F値が上がりP値は下がります。
+検定結果だけで判断すれば、そのまま分散分析を実施する学生は大半だとおもいます。
+手順としては問題ない（帰無仮説棄却しなかったので、等分散性に問題ない）が、生データのばらつきをみると不安ですね。
+さらに、帰無仮説検定論を用いた解析なので、第1種の誤りと第2種の誤りの存在も忘れずに。
+このとき、分散分析の結果は慎重に扱いましょう。
+
+
+---
+
+## FY1990 シャピロウィルク検定
+
+シャピロ–ウィルク検定は「サンプルは正規分布に従う母集団からあつめた」が帰無仮説です。
+つまり検定から求めたP値はサンプルの正規性を評価する指標です。
+帰無仮説を棄却したら、センプルは正規分布に従わない母集団からあつめたことになります。
+
+
+```{r}
+shapiro.test(x = d19$seaweed) # FY1990 の処理
+```
+
+シャピロウィルク検定の統計量はW値といいます。
+W  =`r sprintf("%2.2f", s19$statistic)`、**`r pval(s19$p.value)`** でしたので、
+帰無仮説を棄却できます。
+検定をかけなくても、[図](#visdata) を確認すると度数分布は全く正規分布にみえません。
+明らかに観測値は左側に偏っています。
+
+---
+
+## FY2018 シャピロウィルク検定
+
+`FY2018` データの等分散性について、`r pval(s20[2])` だったので、`FY1990` と同じ結果になりました。
+
+```{r}
+shapiro.test(x = d20$seaweed) # FY2018 の処理
+```
+
+つまり `FY1990` と `FY2018` のデータは正規分布する過程から発生していないと考えられます。
+
+---
+
+## 等分散性または正規分布に従わないとき
+
+等分散性や正規性に問題があった場合、さまざまな対策をとれます。
+
+* 観測値を変換 **transformation of variables** して、正規分布に従う用にする。たとえば、$y' = \sqrt{y}$ や $y' = \log{y}$ などの関数を使って変換して、$y'$ をモデルの観測値として使う。
+
+* 等分散性に問題があったら、**一般化線形モデル (Generalized Linear Models, GLM)** をつかって、正規分布以外の分布を仮定して解析できます。
+
+* 各グループの分散をあえてモデルに組み込み、等分散性の縛りの無い**一般化最小2乗法モデル (Generalized Least Squares Model)** や、**一般化混合線形モデル (Generalized Linear Mixed Models)** も候補です。
+
+* **ノンパラメトリック (non-parametric)** の解析手法を使うこともできます。
+ノンパラメトリック法は分散の計算や分布を仮定する必要がないからです。
+
+---
+name: t-test
+
+## t検定（１）
+
+データの正規性や等分散性に問題はありそうでしたが、**その結果を無視して 2グループの t 検定を実施してみます。**
+講義でも説明したが、よく考えずに全グループのペアごとの比較をすると、**第 1 種の誤り (Type-I error)** の確率があがります。
+
+では、FY1990の全海域の**海藻藻場と海草藻場を比較**しましょう。
+
+```{r}
+t.test(x = d19$seagrass, y = d19$seaweed)
+```
+
+`d19$seagrass` の `$` は `d19` の変数 `seagrass` を抽出するために使います。
+P値は有意水準 (α = 0.05) より高いので、帰無仮説を棄却できません。
+
+---
+
+## t検定（２）
+
+では、つぎは**東部と西部の海藻の藻場面積を比較**してみます。
+このとき、`d19` を `filter()` にかけて、`東部` と `西部`のデータを抽出しなければなりません。
+
+```{r}
+ew19 = d19 |> filter(str_detect(site, '東部|西部')) # フィルターをかける
+t.test(seaweed ~ site, data = ew19)
+```
+
+`str_detect()` は文字列を検索するために使う関数です。
+関数に `site` を渡して、`'東部|西部'`　も渡しました。
+`'東部|西部'` の `|` は論理演算子 `or` です。
+つまり、`site` 変数に `東部` か `西部` がある文字列の観測値だけ返します。
+さらに、`t.test()` にはモデル式 (`seaweed ~ site`) を渡しました。
+
+---
+
+## t検定（３）
+
+`t.test()` の結果をオブジェクトに書き込んだら、t値 (t value)、p値 (p value)、自由度 (degrees of freedom) を抽出できます。
+
+```{r}
+dset_test = t.test(seaweed ~ site, data = ew19)
+dset_test$statistic  # t value
+dset_test$parameter  # degrees of freedom 
+dset_test$p.value 　 # p value
+```
+
+---
+
+## t検定（４）
+
+私は英文雑誌にしか論文を投稿しないので、英語で t検定の結果を報告するなら次のように書きます。
+
+> The bed area (mean ± one standard error) of the seaweed at the Eastern sites was `r pm(dsum$seaweed_mean[1], dsum$seaweed_se[1])`, 
+however at the Western sites the bed area was `r pm(dsum$seaweed_mean[3], dsum$seaweed_se[3])`.
+A Welch's t-test revealed that there was no significant difference between the two sites  (t<sub>(`r sprintf("%0.2f", dset_test$parameter)`)</sub> = `r sprintf("%2.3f", dset_test$statistic)`; `r pval(dset_test$p.value)`).
+
+和文の場合も丁寧に説明してください。
+
+> 海藻藻場面積において、東部の面積（平均値±標準誤差）は `r pm(dsum$seaweed_mean[1], dsum$seaweed_se[1])` ha でしたが、
+西部の面積は `r pm(dsum$seaweed_mean[2], dsum$seaweed_se[2])` ha でした。
+ｔ検定の結果、両地点で藻場面積間に有意な差がみられなかった (t<sub>(`r sprintf("%0.2f", dset_test$parameter)`)</sub> = `r sprintf("%2.3f", dset_test$statistic)`; `r pval(dset_test$p.value)`)。
+
+大事なのは、つぎの 3 つ情報を記述することです。
+
+* t<sub>(`r sprintf("%0.2f", dset_test$parameter)`)</sub>: 検定に使用した自由度（サンプル数の目安）
+* `r sprintf("%2.3f", dset_test$statistic)`: t検定の統計量
+* P = `r sprintf("%2.4f", dset_test$p.value)`: 結果のP値とくに棄却できなかったときのP値を報告しましょう。
+
+---
+class: center, middle, inverse
+name: anova
+
+# 一元配置分散分析
+
+---
+
+## 一元配置分散分析（１）
+
+では、一元配置分散分析を実施します。
+まず、分散分析の平方和を正しく求めるためには、`contr.sum` を設定することです。
+設定したあと、`lm()` 関数でモデルを当てはめます。
+`lm()` 関数に渡すモデルは、 `〜` の右辺に説明変数、左辺に観測値を指定しましょう。
+
+```{r}
+contrasts(d19$site) = contr.sum
+contrasts(d20$site) = contr.sum
+m19 = lm(seaweed ~ site, data = d19)　# FY1990 の解析
+m20 = lm(seaweed ~ site, data = d20)  # FY2018 の解析
+```
+
+FY1990 海藻藻場面積の一元配置分散分析の結果は次のとおりです。
+```{r, echo = FALSE}
+a19 = anova(m19)
+a20 = anova(m20)
+```
+
+```{r}
+anova(m19) # FY1990 の処理
+```
+
+---
+
+## 一元配置分散分析（２）
+
+FY2018 海藻藻場面積の一元配置分散分析の結果は次のとおりです。
+
+```{r}
+anova(m20) # FY2018 の処理
+```
+
+FY1990 のP値は `r pval(a19[[5]][1])`、
+FY2018 のP値は `r pval(a20[[5]][1])` でした。
+どちらも有意水準 (α = 0.05) より大きいので、帰無仮説（海域間の藻場面積は同じ）を棄却できません。
+
+等分散性と正規性の検定を無視したように、今回だけ分散分析の結果を無視して、多重比較をしてみます。
+
+---
+
+## 多重比較・Tukey HSD法（１）
+
+調査海域の全ペアの比較をするので、**Tukey HSD** を用います。
+
+```{r}
+e19 = emmeans(m19, specs = pairwise ~ site, adjust = "tukey")
+e20 = emmeans(m20, specs = pairwise ~ site, adjust = "tukey")
+```
+
+FY2019 の場合、全ペアを比較したら、有意な結果はありません。
+
+.pull-left[
+```{r, eval = F}
+e19 # FY1990 の処理
+```
+]
+
+.pull-right[
+.small[
+```{r, echo= F}
+e19 # FY1990 の処理
+```
+]
+]
+
+---
+
+## 多重比較・Tukey HSD法（２）
+
+FY2020 の結果も同じですね。
+
+```{r}
+e20 # FY2018 の処理
+```
+
+この用な結果は予想していました。そもそも分散分析から有意な結果がでなかったので、多重比較して有意な結果はなかなかでません。
+
+---
+
+## 多重比較・Dunnet法（３）
+
+ちなみに Dunnet Method をつかって、西部と東部を中部と比較したら次の結果になります。
+
+```{r}
+e19d = emmeans(m19, specs = trt.vs.ctrl ~ site, ref = 2)
+e20d = emmeans(m20, specs = trt.vs.ctrl ~ site, ref = 2)
+```
+
+.pull-left[
+.small[
+
+```{r}
+e19d # FY1990 の処理
+```
+]
+]
+.pull-right[
+.small[
+
+```{r}
+e20d # FY2018 の処理
+``` 
+]
+]
+
+Dunnet Method の場合でも有意な結果はありません。
+
+---
+class: center, middle, inverse
+name: two-way-anova
+
+# 二元配置分散分析
+
+---
+
+## 正規性と等分散性の確認
+
+```{r}
+dall = bind_rows(fy1990 = d19, fy2018 = d20,  .id = "year")
+dall = dall |> mutate(year = factor(year))
+```
+
+
+```{r, echo=FALSE}
+lall = leveneTest(seaweed ~ site*year, data = dall)
+sall = shapiro.test(x = dall$seaweed)
+```
+
+分散分析を行う前に、Levene Test と Shapiro-Wilk Normality Test でデータの等分散性 (assumption of homogeneity of variance) と正規性 (assumption normality) を確認します。
+ルビーン検定とシャピロウィルク検定については、t 検定の資料を参考にしてください。
+ここで紹介する解析は `海藻` に対してです。
+
+---
+
+## ルビーン検定
+
+二元配置分散分析の場合、2つの離散型説明変数と関係する相互作用の影響を調べる必要があります。
+コメントされているコードは実行したコードを諸略せずに書いたものです。
+
+```{r}
+# leveneTest(seaweed ~ site + year + site:year, data = dall) 
+leveneTest(seaweed ~ site*year, data = dall) 
+```
+
+`FY1990`と`FY2018` データの等分散性検定結果は `r pval(lall[[3]][1])` でしたので、
+帰無仮説は棄却できません。
+つまり、等分散性であると判断できます。
+
+---
+
+## シャピロウィルク検定
+
+`FY1990`と`FY2018` データの等分散性について、`r pval(sall[2])` だったので、
+帰無仮説を棄却できます。
+データの母集団は正規分布に従わないかもしれないです。
+
+```{r}
+shapiro.test(x = dall$seaweed) # FY1990 の処理
+```
+
+---
+
+## 二元配置分散分析
+
+では、二元配置分散分析を実施します。
+一元配置分散分析と同じ作業を実施します。
+
+```{r}
+contrasts(dall$site) = contr.sum
+contrasts(dall$year) = contr.sum
+mall = lm(seaweed ~ site*year, data = dall)
+```
+
+FY1990 海藻藻場面積の一元配置分散分析の結果は次のとおりです。
+```{r, echo = F}
+aall = Anova(mall, type = 3)
+```
+
+.pull-left[
+.small[
+```{r}
+Anova(mall, type =3)
+```
+
+]
+]
+.pull-right[
+
+
+`site` 効果のP値は **`r pval(aall[[4]][2])`**、
+`year` 効果のP値は **`r pval(aall[[4]][3])`**、
+相互作用のP値は    **`r pval(aall[[4]][4])`** でした。
+相互作用のP値は有意水準 (α = 0.05) より大きいので、相互作用の帰無仮説は棄却できますが、主効果の帰無仮説は棄却できません。
+]
+
+---
+
+## 多重比較・TukeyHSD法・全ペアの比較
+
+.pull-left[
+
+調査海域の全ペアの比較をしるので、Tukey HSDを用います。
+
+```{r}
+eall = emmeans(mall, 
+               specs = pairwise ~ site:year, 
+               adjust = "tukey")
+```
+
+```{r, eval = F}
+eall 
+```
+]
+
+.pull-right[
+.small[
+```{r, echo = F}
+eall 
+```
+]
+]
+
+---
+
+## 多重比較・TukeyHSD法・条件付き比較
+
+.pull-left[
+.small[
+```{r}
+emmeans(mall, specs = pairwise ~ site|year, adjust = "tukey")
+
+```
+
+]
+]
+.pull-right[
+.small[
+```{r}
+emmeans(mall, specs = pairwise ~ year|site, adjust = "tukey")
+
+```
+
+]
+]
+
+---
+class: center, middle, inverse
+name: diagnostic-plots
+
+# 等分散性と正規性の事後確認
+
+診断図によるデータとモデルの整合性を確認する
+
+---
+
+## 残渣 vs. 期待値：等分散性の確認
+
+.pull-left[
+```{r rfplot, fig.width=6, fig.height=4}
+plot(mall, which = 1)
+```
+
+]
+
+.pull-right[
+
+この図は残渣 (residual) 
+と期待値 (fitted values) の関係を理解するてめに使います。
+等分散性に問題がない場合、残渣は y = 0 の周りを均一に、変動なくばらつきます。
+ところが 今回の場合、期待値が高いとき、残渣のばらつきが大きい。
+]
+
+---
+
+## スケール vs. 期待値：等分散性の確認
+
+.pull-left[
+```{r slplot, fig.width=6, fig.height=4}
+plot(mall, which = 3)
+```
+]
+
+.pull-right[
+
+これはスケール・ロケーションプロットといいます。
+スケール (scale) は確率密度分布のばらつきのパラメータです。
+位置（ロケーション）(location) は確率分布の中心のパラメータです。
+たとえば、正規分布のスケールパラメータは分散、位置パラメータは平均値です。
+図の横軸は位置、縦長はスケールパラメータで標準化した残渣の平方根です。
+示されている標準化残渣のばらつきが均一で、期待値 (fitted values) と無関係であれば、ばらつきは均一であると考えられます。
+今回の場合、標準化残渣は期待値と正の関係があるので、ばらつきは均一であると考えられません。
+]
+
+---
+
+## QQプロット・正規性の確認
+
+.pull-left[
+
+```{r qqplot, fig.width=6, fig.height=4}
+plot(mall, which = 2)
+```
+]
+
+.pull-right[
+
+標準化残渣（点）が点線に沿っているのであれば、正規性の問題はないです。
+今回のデータの場合、両極端のクォンタイルの標準化残渣は点線から離れているので正規性に問題あると考えられる。
+
+観測値の変換か、一般化線形モデルを試す必要がありますね。
+
+]
+
+---
+
+## クックの距離とてこ比のプロット：伸び値の確認
+
+.pull-left[
+
+```{r cookplot, fig.width=6, fig.height=4}
+plot(mall, which = 5)
+```
+]
+
+.pull-right[
+クックの距離（点線）の外側に分布する点は他の点と比べるとモデルにつよう影響力があると考えられます。
+今回は19番目の点が問題かもしれないですね。
+
+観測値の変換かモデルを変えると、この点は消えることもある。
+
+]
+
+---
+class: center, middle, inverse
+name: transform
+
+# 変換して解析
+
+---
+
+## 観測値を変換して解析する
+
+```{r}
+dall = dall |> mutate(across(c(seagrass, seaweed), list(sqrt = sqrt, log1 = log1p)))
+```
+
+---
+
+## 二元配置分散分析
+
+```{r}
+contrasts(dall$site) = contr.sum
+contrasts(dall$year) = contr.sum
+mall = lm(seaweed_sqrt ~ site*year, data = dall)
+Anova(mall, type =3)
+```
+
+---
+
+## 診断図
+
+.pull-left[
+```{r, fig.width=6, fig.height=4, echo = F}
+plot(mall, which = 3)
+```
+]
+
+.pull-right[
+```{r, fig.width=6, fig.height=4, echo = F}
+plot(mall, which = 2)
+```
+]
+
+---
+class: center, middle, inverse
+name: transform
+
+# 一般化線形モデル
+
+---
+
+## 一般化線形モデル・負の二項分布とポアソン分布
+
+```{r}
+contrasts(dall$site) = contr.sum
+contrasts(dall$year) = contr.sum
+mall_nb = MASS::glm.nb(seaweed ~ site * year, data = dall)
+mall_po = glm(seaweed ~ site * year, data = dall, family = poisson)
+```
+
+---
+
+## 等分散性の診断図
+
+.pull-left[
+```{r, fig.width=6, fig.height=4, echo = F}
+plot(mall_nb, which = 3)
+```
+]
+
+.pull-right[
+```{r, fig.width=6, fig.height=4, echo = F}
+plot(mall_po, which = 3)
+```
+]
+
+---
+
+## ランダム化残渣の正規性の診断図
+
+.pull-left[
+```{r, fig.width=6, fig.height=4, echo = F}
+set.seed(2021)
+qresiduals = statmod::qresiduals(mall_nb)
+qqnorm(qresiduals)
+abline(0,1, lty = "dashed")
+```
+]
+
+.pull-right[
+```{r, fig.width=6, fig.height=4, echo = F}
+set.seed(2021)
+qresiduals = statmod::qresiduals(mall_po)
+qresiduals[!is.infinite(qresiduals)] |> qqnorm()
+abline(0,1, lty = "dashed")
+```
+]
+
+
+
+
+
