@@ -1,6 +1,9 @@
 ---
 title: '基礎統計学解析 `r fontawesome::fa(name = "r-project")` マニュアル'
-subtitle: "マニュアルを随時更新します"  
+subtitle: |
+          | マニュアルを随時更新します
+          | Mathjax.jsの読み込みが遅いです
+          |
 author: 
   - "GN Nishihara"
 date: '更新日：`r Sys.Date()`'
