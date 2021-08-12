@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>2D Bayesian GAM of Zostera marina coverage</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Greg Nishihara" />
+    <script src="OrdinalGAM_files/header-attrs/header-attrs.js"></script>
+    <link href="OrdinalGAM_files/tile-view/tile-view.css" rel="stylesheet" />
+    <script src="OrdinalGAM_files/tile-view/tile-view.js"></script>
+    <link href="OrdinalGAM_files/animate.css/animate.xaringan.css" rel="stylesheet" />
+    <link href="OrdinalGAM_files/tachyons/tachyons.min.css" rel="stylesheet" />
+    <link href="OrdinalGAM_files/panelset/panelset.css" rel="stylesheet" />
+    <script src="OrdinalGAM_files/panelset/panelset.js"></script>
+    <link href="OrdinalGAM_files/xaringanExtra-extra-styles/xaringanExtra-extra-styles.css" rel="stylesheet" />
+    <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# 2D Bayesian GAM of <em>Zostera marina</em> coverage
+## 2021 Kabeyama Dataset
+### Greg Nishihara
+### Aquatic Plant Ecology Lab, Nagasaki University
+### Compiled on: 2021-08-12
+
+---
+
+
+
+
+
+
+
+
+## Background
+
+* Data is from 2021 Makoto Kabeyama *Zostera marina* meadow study
+* Study site is Arikawa Bay, Nakadori Island, Nagasaki, Japan
+
+---
+
+## Survey method
+
+* Once a month
+* 6 transects spaced 10 m apart for 2021 May data
+* 11 transects spaced 5 m apart for 2021 June to July data
+* Coverage estimate every 2 m using a camera and a known length scale
+
+---
+
+## Excel sheet structure
+
+.right-column[
+&lt;img src="OrdinalGAM_files/figure-html/unnamed-chunk-2-1.png" width="100%" /&gt;
+]
+.left-column[
+* A small section of the data in the Excel sheet showing the first two lines for the 2021 May survey.
+* The data is in a wide format.
+* Note the empty cells, Japanese text, and the notation "AorB".
+* Ideally, the data should be in a csv file, in a long format, with minimal annotations.
+]
+
+---
+
+## Read Excel sheet data
+
+
+```r
+# ファイル名のオブジェクトを定義する
+filename = "~/Lab_Data/kabeyamam/arikawa_amamo_line.xlsx"
+
+# xlsxファイルからシート名を抽出する
+esheet = excel_sheets(filename)
+
+# map2() をつかって、全てのシートを読み込む
+dset = tibble(filename, esheet) |&gt; 
+  mutate(data = map2(filename, esheet, 
+                     read_xlsx, 
+                     col_types = "text"))
+```
+
+---
+
+## A function to extract the transect number
+
+* This function will be applied to each sheet.
+* It will select columns matching `tomatch`.
+* It will pivot all the columns with `everything()`.
+* It will extract the transect numbers from the `name` column and delete `name`.
+
+
+```r
+pivot_longer_get_line = function(df) {
+  tomatch = "ライン|距離|時刻|アマモ"
+  df |&gt; 
+    select(matches(tomatch)) |&gt; 
+    pivot_longer(cols = everything()) |&gt; 
+    mutate(line = str_extract(name,"[0-9]+$"),
+           line = as.numeric(line),
+           name = str_remove(name,"[0-9]+$"))
+}
+```
+
+---
+
+##  A function to clean up the data
+
+* This function will be applied to each sheet.
+* It will extract the distance from the `距離` column
+* It will also remove `orC` and `orB` from the data.
+* Any observations that are not A, B, C, D, or E will be marked as NA.
+
+
+```r
+pivot_wider_clean_data = function(df) {
+  df |&gt; 
+    pivot_wider(id_cols = line,
+                names_from = name, 
+                values_from = value,
+                values_fn = list) |&gt; 
+    unnest(everything()) |&gt; 
+    mutate(distance = str_extract(距離,"[0-9]+"),
+           line = 5 * (line - 1),
+           amamo = factor(アマモ),
+           distance = as.numeric(distance)) |&gt; 
+    select(line, distance, amamo) |&gt;
+    mutate(amamo = str_remove(amamo,"orC|orB"),
+           amamo = ifelse(str_detect(amamo,"A|B|C|D|E"), amamo, NA))
+}
+```
+
+---
+
+## Process the data with the functions
+
+
+```r
+dset = dset |&gt; 
+  mutate(data = map(data, pivot_longer_get_line)) |&gt;
+  mutate(data = map(data, pivot_wider_clean_data)) |&gt; 
+  mutate(date = ymd(esheet),
+         month = month(date),
+         month_fct = factor(month, 
+                            levels = c(4:12, 1:3),
+                            labels = month.abb[c(4:12, 1:3)]))
+```
+
+
+* Remove file name from tibble and unnest the data.
+
+
+```r
+dset = dset |&gt; select(-filename) |&gt; unnest(data)
+```
+
+---
+
+## Summarise the frequency of each coverage category
+
+
+```r
+dset_summary = dset |&gt; 
+  group_by(month_fct) |&gt; 
+  mutate(N = length(amamo)) |&gt; 
+  group_by(month_fct, amamo) |&gt; 
+  summarise(count = length(amamo), N = first(N)) |&gt; 
+  mutate(freq = count / N)
+```
+
+---
+
+## Prepare defaults for ggplot2
+
+* Use `showtext` to add Google fonts to the plots.
+* Also use `ggpubr` for the plot theme.
+* I am using the Noto Sans font.
+
+
+```r
+library(lemon)
+library(ggpubr)
+library(showtext)
+library(viridis)
+library(magick)
+
+showtext_auto()
+
+# Googleのフォントをネットからダウンロードする
+font_add_google(name = "Noto Sans JP", family = "notosanscjk") # 日本語フォント
+font_add_google(name = "Noto Sans", family = "notosans")     # 英語フォント
+theme_replace(text = element_text(family = "notosans")) 　　# ggplot2のデフォルトフォントを設定する
+```
+
+---
+
+## Best practice
+
+* Setup the R environment at the beginning of the script.
+
+.small[
+
+```r
+Sys.setlocale("LC_TIME", "en_US.UTF-8") # 研究室のRStudioサーバの時刻環境変数をUS Englishにする
+
+library(tidyverse) # データ処理用・作図 (tidy data)
+library(lubridate) # 時刻データ処理
+library(readxl)    # エクセルファイルの読み込み
+
+library(lemon)     # facet_rep_grid() と facet_rep_wrap() 関数
+library(ggpubr)    # theme_pubr() 関数
+library(showtext)  # ggplot2 のフォント埋め込み
+library(viridis)   # 色覚異常対応カラーパレット
+library(magick)    # imagemagick・画像処理
+
+library(brms)      # ベイズ解析に使
+library(tidybayes) # ベイズ解析結果を tidy にする
+library(bayesplot) # ベイズ解析結果の作図関数
+
+# Googleのフォントをネットからダウンロードする
+font_add_google(name = "Noto Sans JP", family = "notosanscjk") # 日本語フォント
+font_add_google(name = "Noto Sans", family = "notosans")     # 英語フォント
+theme_replace(text = element_text(family = "notosans")) 　　# ggplot2のデフォルトフォントを設定する
+
+showtext_auto() # ggplot2 のフォント埋め込みを自動的にする
+```
+]
+
+---
+
+## Examine data (1)
+
+.panelset[
+
+.panel[.panel-name[ggplot2]
+
+```r
+ggplot(dset_summary) +
+  geom_col(aes(x = amamo, y = freq, fill = amamo)) + 
+  geom_text(aes(x = amamo, y = freq, label = sprintf("%0.3f", freq)),
+            vjust = -1) +
+  scale_fill_viridis(name = "Coverage", direction = -1, discrete = TRUE, option = "turbo") +
+  scale_x_discrete("Coverage category") + 
+  scale_y_continuous("Frequency of occurrance",
+                     breaks = seq(0, 1, by = 0.1),
+                     limits = c(0, 1)) +
+  facet_rep_grid(cols = vars(month_fct)) 
+```
+
+]
+
+.panel[.panel-name[Figure]
+
+&lt;img src="OrdinalGAM_files/figure-html/unnamed-chunk-11-1.png" width="100%" /&gt;
+
+]
+]
+
+---
+
+## Examine data (2)
+
+.panelset[
+
+.panel[.panel-name[ggplot2]
+
+```r
+ggplot(dset)+
+  geom_tile(aes(x = line, y = distance, fill = amamo)) +
+  scale_x_continuous("Distance (m)",
+                     breaks=seq(0, 50, by = 25),
+                     limits = c(-5, 55))+
+  scale_y_continuous("Distance (m)",
+                     trans = "reverse",
+                     breaks=seq(170, 100, by=-10),
+                     limits = c(170, 100)) +
+  scale_fill_viridis(name = "Coverage", direction = -1, discrete = TRUE, option = "turbo") +
+  facet_grid(cols=vars(month_fct))
+```
+
+]
+
+.panel[.panel-name[Figure]
+
+&lt;img src="OrdinalGAM_files/figure-html/unnamed-chunk-12-1.png" width="100%" /&gt;
+
+]
+]
+
+---
+
+## Save plot
+
+* First save as a PDF with a page size of A6
+* Page size function is in the Lab's `gnnlab` package.
+
+
+```r
+wh = gnnlab::aseries(6)
+plotname = "kabeyama_all.pdf"
+ggsave(filename = plotname,
+       width = wh[2],
+       height = wh[1], units="mm")
+```
+
+* Then convert the pdf into a png with a width of 500 pixels.
+
+
+```r
+image_read_pdf(plotname) |&gt; 
+  image_resize("500x") |&gt; 
+  image_write(str_replace(plotname,"pdf","png"))
+```
+
+---
+class: center, middle, inverse
+
+# Ordinal GAM
+
+---
+
+## What is an ordinal model?
+
+* **ordinal model（順序モデル）**
+* The observations  `\((y)\)` are on a scale of 1 to `\(K\)`, so that `\(y_i \leq y_i+1\)`.
+* A model that fits a linear model using a set of **thresholds（閾値・スレッショルド）**.
+* There is a set of thresholds `\(\tau_1 &lt; \tau_2 &lt; \cdot &lt; \tau_{K-1}\)` that divides the real-valued **latent observation（潜在観測値）** `\(\tilde{y}\)` into `\(K\)` categories.
+
+.bg-navy.b--dark-blue.ba.bw1.br3.shadow-5.ph4.mt5[
+
+$$
+y = 
+`\begin{cases}
+1 \text{ if } \tilde{y} \leq \tau_1 \\
+2 \text{ if } \tau_1 &lt; \tilde{y} \leq \tau_2\\
+3 \text{ if } \tau_2 &lt; \tilde{y} \leq \tau_3\\
+\vdots\\
+K \text{ if } \tau_{K-1} &lt; \tilde{y} \\
+\end{cases}`
+$$
+]
+---
+
+## Data preparation
+
+* Set `amamo` as an ordered factor.
+
+
+```r
+dset = dset |&gt; mutate(amamo = factor(amamo, ordered = T))
+```
+
+---
+
+## The model
+
+* `\(y\)` is the observation (ordinal variable). 
+* `\(\tilde{y}\)` is the real-valued latent coverage.
+* `\(\tau\)` is the threshold &amp;mdash; boundary between two states of coverage &amp;mdash; and there are `\(K-1\)` thresholds.
+* There are `\(K\)` coverage categories (i.e., A, B, C, D, or E).
+* `\(s(\cdot)\)` is a tensor product smooth and the basis is a thin plate spline with 10 knots for line and 30 knots for distance.
+* `\(\Phi(\cdot)\)` is the cumulative distribution function for a standard normal distribution.
+
+.bg-navy.b--dark-blue.ba.bw1.br3.shadow-5.ph4.mt5[
+
+
+$$
+`\begin{aligned}
+Pr(y=k|\eta) &amp;= \Phi(\tau_k - \eta) - \Phi(\tau_{k-1}-\eta) \\
+\eta &amp;= s(line, distance|month) + month\\
+\end{aligned}`
+$$
+
+$$
+\tilde{y}_k\sim N(\eta,1)
+$$
+]
+
+
+---
+class: center, middle, inverse
+
+# Maximum Likelihood Estimate
+
+**（最尤法）**
+
+---
+
+## Fit model using ML
+
+
+
+* Prepare for modeling
+
+```r
+library(mgcv)
+# ocat() の場合、説明は整数に変換する
+dset = dset |&gt; mutate(amamo2 = as.integer(amamo))
+K = dset |&gt; pull(amamo2) |&gt; max()
+ctrl = gam.control(nthreads = 5)
+```
+
+* Fit the models
+
+
+```r
+# Null model (no month effect)
+mout0 = gam(amamo2 ~ t2(line, distance, bs = c("ts", "ts"), k = c(10, 30)), 
+            data = dset, family = ocat(R = K), 
+            method = "ML", control = ctrl)
+
+# Full model (month effect)
+mout1 = gam(amamo2 ~ t2(line, distance, by = month_fct, bs = c("ts", "ts"), k = c(10, 30)) + month_fct, 
+            data = dset, family = ocat(R = K), 
+            method = "ML", control = ctrl)
+# Save the models
+mout0 |&gt; write_rds(file = mname0)
+mout1 |&gt; write_rds(file = mname1)
+```
+
+
+
+---
+
+## Select the model with AIC
+
+
+```r
+AIC(mout0, mout1)
+```
+
+```
+##             df       AIC
+## mout0 33.91735  974.6625
+## mout1 65.48993 1039.3210
+```
+
+* Choose the model with the lowest AIC.
+* At this point, the best model is `mout0`.
+* However, I will use `mout1` to demonstrate the remaining code.
+
+---
+
+## Model predictions
+
+
+```r
+pdata = dset |&gt;  
+  tidyr::expand(line = seq(min(line), max(line), length = 25),
+                distance = seq(min(distance), max(distance), length = 25),
+                month_fct = c("May","Jun", "Jul"))
+
+pmat = predict(mout1, newdata = pdata, type = "response")
+pmat = pmat |&gt; as_tibble()
+
+pdata = bind_cols(pdata, pmat) |&gt; 
+  pivot_longer(cols = starts_with("V"))
+
+pdata = pdata |&gt; 
+  mutate(amamo = factor(name, levels = str_glue("V{1:5}"),  labels = LETTERS[1:5]))
+```
+
+---
+
+## Model predictions
+
+.panelset[
+
+.panel[.panel-name[ggplot2]
+
+```r
+ggplot() + 
+  geom_contour_filled(aes(x = line, y = distance, z = value, 
+                          color = after_stat(level), fill = after_stat(level)),
+                      bins = 10, data = pdata) +
+  geom_point(aes(x = line, y = distance), data = dset, 
+             size = 0.5,
+             color = "grey70") +
+  scale_fill_viridis(name = "Probability", discrete = TRUE, option = "inferno") +
+  scale_color_viridis(name = "Probability", discrete = TRUE, option = "inferno") +
+  scale_y_continuous("Distance (m)",
+                     trans = "reverse",
+                     breaks = seq(166, 100, length = 4), limits = c(166, 100))+
+  scale_x_continuous("Distance (m)",
+                     breaks = seq(0, 50, by = 25), limits = c(0, 50)) +
+  guides(fill = guide_legend(ncol = 1), color = "none") +
+  facet_rep_grid(rows = vars(month_fct), cols = vars(amamo)) 
+```
+
+]
+
+.panel[.panel-name[Figure]
+
+&lt;img src="OrdinalGAM_files/figure-html/unnamed-chunk-21-1.png" width="100%" /&gt;
+
+]
+]
+
+The grey dots are the observations and the colors indicate the probability of each observation category.
+
+---
+class: center, middle, inverse
+
+# Bayesian Estimate
+
+---
+
+## Load packages for Bayesian modeling
+
+* Load the `brms`, `tidybayes`, and `bayesplot` packages.
+
+
+```r
+# ベイジアン解析用パッケージ
+library(brms)
+
+# 結果処理用関数# 
+library(tidybayes)
+
+# 診断図用パッケージ
+library(bayesplot)
+```
+
+---
+
+## The null model
+
+* This is the BRMS model specification.
+* The model uses a **tensor product spline/smooth（テンソル積スプラインまたはスムーズ）** `t2()`.
+* The smooth is a **thin-plate shrinkage spline（薄板縮小スプライン）**.
+
+
+```r
+bmodel0 = bf(amamo ~ t2(line, distance, bs = c("ts", "ts"), k = c(10, 30), m = 2))
+```
+
+* `bs` defines the **basis（基底）** for the splines.
+* `k` defines the number of **knots（節点）** for the splines.
+* `m` defines the order of the **penalty term（ペナルティ項）**.
+
+---
+
+## The full model
+
+* The first `t2()` term is a global smoother.
+* The smooths for each month indicates deviation from the global smooth.
+
+
+```r
+bmodel1 = bf(amamo ~ t2(line, distance, bs = c("ts", "ts"), k = c(10, 30), m = 2) + 
+               t2(line, distance, month_fct, bs = c("ts", "ts", "re"), k = c(10, 30, 3), m = 1)) 
+```
+
+---
+
+## Configure brm sample
+
+* I am using a `seed` to fix the **pseudo-random number generator（疑似乱数発生機）**.
+* The `chains` and `cores` are the same. Each **Markov chain（マルコフ連鎖）** will run on one CPU core.
+* `threads` are set to divide each chain into 4 pieces, which will run in parallel. Therefore, a total 16 cores will be used to sample from the posterior distribution. This can speed up sampling.
+* Earlier runs indicated that the `adapt_delta` and `max_treedepth` values needed to be increased, so these are changed accordingly.
+
+
+```r
+seed = 2020
+chains = 4
+cores = chains
+threads = 4
+ctrl = list(adapt_delta = 0.95, max_treedepth = 15)
+```
+
+---
+
+## Examine the default priors
+
+.panelset[
+.panel[.panel-name[Code]
+
+```r
+get_prior(bmodel0, data = dset, family = cumulative("probit"))
+get_prior(bmodel1, data = dset,family = cumulative("probit"))
+```
+]
+.panel[.panel-name[bmodel0]
+.small[
+
+```
+##                 prior     class                                             coef group resp dpar nlpar bound       source
+##  student_t(3, 0, 2.5) Intercept                                                                                   default
+##  student_t(3, 0, 2.5) Intercept                                                1                             (vectorized)
+##  student_t(3, 0, 2.5) Intercept                                                2                             (vectorized)
+##  student_t(3, 0, 2.5) Intercept                                                3                             (vectorized)
+##  student_t(3, 0, 2.5) Intercept                                                4                             (vectorized)
+##  student_t(3, 0, 2.5)       sds                                                                                   default
+##  student_t(3, 0, 2.5)       sds t2(line,distance,bs=c("ts","ts"),k=c(10,30),m=2)                             (vectorized)
+```
+]]
+.panel[.panel-name[bmodel1]
+.small[
+
+
+```
+##                 prior     class                                                              coef group resp dpar nlpar bound       source
+##  student_t(3, 0, 2.5) Intercept                                                                                                    default
+##  student_t(3, 0, 2.5) Intercept                                                                 1                             (vectorized)
+##  student_t(3, 0, 2.5) Intercept                                                                 2                             (vectorized)
+##  student_t(3, 0, 2.5) Intercept                                                                 3                             (vectorized)
+##  student_t(3, 0, 2.5) Intercept                                                                 4                             (vectorized)
+##  student_t(3, 0, 2.5)       sds                                                                                                    default
+##  student_t(3, 0, 2.5)       sds                  t2(line,distance,bs=c("ts","ts"),k=c(10,30),m=2)                             (vectorized)
+##  student_t(3, 0, 2.5)       sds t2(line,distance,month_fct,bs=c("ts","ts","re"),k=c(10,30,3),m=1)                             (vectorized)
+```
+]]]
+
+
+---
+
+## Prepare custom priors
+
+* The intercept for the model is given a **Student's t prior（t分布）** with 3 **degrees-of-freedom（自由度）**, a **location（位置）** of 0, and a **scale（スケール）** of 2.5.
+* The variance parameter for the smooth is also given a Student's t prior with 3 degrees-of-freedom, a location of 0, and a scale of 2.5. This is a parameter to describe the **wiggliness（グネグネ度）** of the smooth -- large values indicate wigglier smooths.
+
+
+```r
+myprior = c(prior(student_t(3, 0, 2.5), class = Intercept),
+            prior(student_t(3, 0, 2.5), class = sds))
+```
+
+---
+
+## Sample from the posterior
+
+* Always save the output to file.
+* Each model will take about 3 to 4 hours to run
+
+
+```r
+# Null model
+bout0 = brm(bmodel0, 
+            data = dset,
+            family = cumulative("probit"),
+            prior = myprior,
+            chains = chains, cores = cores,
+            seed = seed, control = ctrl,
+            file = "brms_bout0")
+
+#Full model
+bout1 = brm(bmodel1, 
+            data = dset,
+            family = cumulative("probit"),
+            prior = myprior,
+            chains = chains, cores = cores,
+            seed = seed, control = ctrl,
+            file = "brms_bout1")
+```
+
+---
+
+## K-fold cross-validation
+
+* Add information for model selection
+* This will take a very long time (at least 7 hours each).
+
+
+```r
+library(future)
+plan(multisession)
+
+kname0 = rprojroot::find_rstudio_root_file("Ordinal_2DGAM/brms_kfold0.rds")
+kfold0 = bout0 |&gt; brms::kfold(K = 10, Ksub = 4, cores = 10, control = list(adapt_delta = 0.999999, max_treedepth = 20))
+kfold0 |&gt; write_rds(kname0)
+
+kname1 = rprojroot::find_rstudio_root_file("Ordinal_2DGAM/brms_kfold1.rds")
+kfold1 = bout1 |&gt; brms::kfold(K = 10, Ksub = 4, cores = 10, control = list(adapt_delta = 0.999999, max_treedepth = 20))
+kfold1 |&gt; write_rds(kname1)
+```
+
+
+
+**Compare the two models**
+
+.pull-left[
+
+```r
+loo_compare(kfold0, kfold1)
+```
+
+```
+##       elpd_diff se_diff
+## bout1   0.0       0.0  
+## bout0 -81.1      42.0
+```
+]
+.pull-right[
+* The first line indicates the best model.
+* The second line indicate the degree of difference between the models.
+]
+
+
+---
+
+
+## Posterior predictive check
+
+* Only the checks for the full model will be shown.
+* The default `type` for `pp_check()` is `dens_overlay`, however since this is discrete data I used `ecdf_overlay`.
+
+.panelset[
+.panel[.panel-name[Code]
+
+
+```r
+pp_check(bout0, type = "ecdf_overlay" , nsamples = 50, discrete =TRUE)
+pp_check(bout1, type = "ecdf_overlay" , nsamples = 50, discrete =TRUE)
+```
+]
+
+.panel[.panel-name[bout0]
+&lt;img src="OrdinalGAM_files/figure-html/unnamed-chunk-35-1.png" width="100%" /&gt;
+]
+
+.panel[.panel-name[bout1]
+&lt;img src="OrdinalGAM_files/figure-html/unnamed-chunk-36-1.png" width="100%" /&gt;
+]
+]
+
+* The dark line (y) is the estimated frequency distribution of the observation.
+* The light lines (y&lt;sub&gt;rep&lt;/sub&gt;) is the estimated frequency distribution of the posterior.
+* All dark line should be similar to the light lines.
+
+---
+
+## Population-level effects
+
+.small[
+
+```r
+summary(bout1)
+```
+
+```
+##  Family: cumulative 
+##   Links: mu = probit; disc = identity 
+## Formula: amamo ~ t2(line, distance, bs = c("ts", "ts"), k = c(10, 30), m = 2) + t2(line, distance, month_fct, bs = c("ts", "ts", "re"), k = c(10, 30, 3), m = 1) 
+##    Data: dset (Number of observations: 952) 
+## Samples: 4 chains, each with iter = 2000; warmup = 1000; thin = 1;
+##          total post-warmup samples = 4000
+## 
+## Smooth Terms: 
+##                                Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+## sds(t2linedistance_1)            279.20     59.07   185.11   413.75 1.00     1182     2216
+## sds(t2linedistancemonth_fct_1)     0.55      0.46     0.02     1.73 1.01     1664     1992
+## 
+## Population-Level Effects: 
+##              Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+## Intercept[1]    -1.34      1.29    -3.82     1.19 1.00     5965     2711
+## Intercept[2]    -0.41      1.29    -2.91     2.14 1.00     6012     2602
+## Intercept[3]     0.31      1.29    -2.20     2.83 1.00     5962     2550
+## Intercept[4]     1.75      1.29    -0.75     4.30 1.00     6177     2748
+## 
+## Family Specific Parameters: 
+##      Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+## disc     1.00      0.00     1.00     1.00 1.00     4000     4000
+## 
+## Samples were drawn using sampling(NUTS). For each parameter, Bulk_ESS
+## and Tail_ESS are effective sample size measures, and Rhat is the potential
+## scale reduction factor on split chains (at convergence, Rhat = 1).
+```
+]
+
+* Intercepts indicate the thresholds between each category assuming a normal distribution with a mean of 0 and a standard deviation of 1. 
+* `Rhat` indicates if all the chains converged and should be less than 1.05.
+
+---
+
+## Create a tibble of predictions
+
+
+
+```r
+pdata = dset |&gt;  
+  tidyr::expand(line = seq(min(line), max(line), length = 25),
+                distance = seq(min(distance), max(distance), length = 25),
+                month_fct = c("May","Jun", "Jul"))
+pdata = pdata |&gt;  
+  add_fitted_draws(model = bout1) |&gt; 
+  mutate(.category = factor(.category, 
+                            levels = 1:5, labels = LETTERS[1:5])) |&gt; 
+  ungroup() |&gt; 
+  mutate(amamo = factor(.category, ordered = T))
+
+pdata2 = pdata |&gt;  group_by(line, distance, month_fct, amamo) |&gt; 
+  mean_hdci(.value)
+
+# Save pdata and pdata2 into a file
+
+pname = rprojroot::find_rstudio_root_file("Ordinal_2DGAM/brms_pdata.rds")
+pname2 = rprojroot::find_rstudio_root_file("Ordinal_2DGAM/brms_pdata2.rds")
+pdata |&gt; write_rds(pname) # &gt; 2.1 G
+pdata2 |&gt; write_rds(pname2) # &gt; 800 K
+```
+
+
+
+---
+
+## Spatial distribution of coverage probability
+
+.panelset[
+.small[
+.panel[.panel-name[ggplot2]
+
+```r
+ggplot(pdata2) + 
+  geom_contour_filled(aes(x = line, y = distance, z = .value, 
+                          color = after_stat(level), fill = after_stat(level)),
+                      bins = 10) +
+  geom_point(aes(x = line, y = distance), data = dset, 
+             size = 0.5, color = "grey70") +
+  scale_fill_viridis(name = "Probability",  discrete = TRUE, option = "inferno") +
+  scale_color_viridis(name = "Probability",  discrete = TRUE, option = "inferno") +
+  scale_y_continuous("Distance (m)",
+                     trans = "reverse",
+                     breaks = seq(166, 100, length = 4), limits = c(166, 100))+
+  scale_x_continuous("Distance (m)",
+                     breaks = seq(0, 50, by = 25), limits = c(0, 50)) +
+  facet_grid(cols = vars(amamo), rows = vars(month_fct),as.table = FALSE) +
+  guides(fill = guide_legend(ncol = 1),
+         color = "none") +
+  theme(legend.background = element_blank())
+```
+
+]
+
+.panel[.panel-name[Figure]
+
+&lt;img src="OrdinalGAM_files/figure-html/unnamed-chunk-40-1.png" width="100%" /&gt;
+
+]
+]
+]
+
+---
+
+## Conditional distribution
+
+.panelset[
+
+.panel[.panel-name[ggplot2]
+
+```r
+g = conditional_effects(bout1, categorical = TRUE)
+g$`month_fct:cats__` |&gt; as_tibble() |&gt; 
+  mutate(cats__ = factor(cats__, labels = LETTERS[1:5])) |&gt; 
+  arrange(month_fct) |&gt; 
+  ggplot() + 
+  geom_pointinterval(aes(x = effect1__,
+                         y = estimate__,
+                         ymin = lower__,
+                         ymax = upper__,
+                         color = cats__),
+                     position = position_dodge(0.2),
+                     size = 2)+
+  scale_x_discrete("Month") + 
+  scale_y_continuous("Probability", limits = c(0, 1)) +
+  scale_color_viridis(name = "Coverage", direction = -1, discrete = TRUE, option = "turbo") +
+  theme(legend.position = c(1,1),
+        legend.justification = c(1,1),
+        legend.background = element_blank())
+```
+
+]
+
+.panel[.panel-name[Figure]
+
+&lt;img src="OrdinalGAM_files/figure-html/unnamed-chunk-41-1.png" width="100%" /&gt;
+
+]
+
+]
+
+
+
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"slideNumberFormat": "%current% / %total%",
+"highlightStyle": "monokai",
+"highlightLines": true,
+"ratio": "16:9",
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
