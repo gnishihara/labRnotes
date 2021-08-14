@@ -1,0 +1,1652 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>R の基礎</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="GN Nishihara" />
+    <script src="introduction_files/header-attrs/header-attrs.js"></script>
+    <link href="introduction_files/tile-view/tile-view.css" rel="stylesheet" />
+    <script src="introduction_files/tile-view/tile-view.js"></script>
+    <link href="introduction_files/animate.css/animate.xaringan.css" rel="stylesheet" />
+    <link href="introduction_files/tachyons/tachyons.min.css" rel="stylesheet" />
+    <link href="introduction_files/panelset/panelset.css" rel="stylesheet" />
+    <script src="introduction_files/panelset/panelset.js"></script>
+    <link href="introduction_files/xaringanExtra-extra-styles/xaringanExtra-extra-styles.css" rel="stylesheet" />
+    <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# R の基礎
+## Rの基本操作の紹介とデータの入出力
+### GN Nishihara
+
+---
+
+
+
+
+
+
+
+
+## 目次
+
+* [Rの紹介・代入演算子・データ構造](#introduction)
+* [R関数の基本](#functions)
+* [データの入出力](#data-io)
+* [モダンRの紹介・データの入出力：`tidyverse`](#tidyverse)
+* [作図：`ggplot2`](#tidyverse)
+
+---
+
+class: middle, center, inverse
+name: introduction
+
+# <svg aria-hidden="true" role="img" viewBox="0 0 581 512" style="height:1em;width:1.13em;vertical-align:-0.125em;margin-left:auto;margin-right:auto;font-size:inherit;fill:currentColor;overflow:visible;position:relative;"><path d="M581 226.6C581 119.1 450.9 32 290.5 32S0 119.1 0 226.6C0 322.4 103.3 402 239.4 418.1V480h99.1v-61.5c24.3-2.7 47.6-7.4 69.4-13.9L448 480h112l-67.4-113.7c54.5-35.4 88.4-84.9 88.4-139.7zm-466.8 14.5c0-73.5 98.9-133 220.8-133s211.9 40.7 211.9 133c0 50.1-26.5 85-70.3 106.4-2.4-1.6-4.7-2.9-6.4-3.7-10.2-5.2-27.8-10.5-27.8-10.5s86.6-6.4 86.6-92.7-90.6-87.9-90.6-87.9h-199V361c-74.1-21.5-125.2-67.1-125.2-119.9zm225.1 38.3v-55.6c57.8 0 87.8-6.8 87.8 27.3 0 36.5-38.2 28.3-87.8 28.3zm-.9 72.5H365c10.8 0 18.9 11.7 24 19.2-16.1 1.9-33 2.8-50.6 2.9v-22.1z"/></svg> の紹介
+
+---
+
+## R? S?
+
+* R は統計解析に特化したプログラミング言語です。
+* R のルーツは 1970年代に Bell Laboratories で開発された S 言語です。
+* R は1991年に University of Auckland, New Zealand の Ross Ihaka と Robert Gentleman が買う初しました。
+
+この資料は R version 4.1.0 (2021-05-18) 環境で作りました。
+
+---
+
+## 代入演算子とベクトルとは
+
+.pull-left[
+
+* 代入は `=` か `&lt;-` (`&lt;` と `-`) です。伝統的に使われる代入は `&lt;-` ですが、私は `=` を使っています。
+
+
+```r
+# 二種類の代入と c() 関数
+a = 4.2
+b &lt;- 5.0
+c(a, b)
+```
+
+```
+## [1] 4.2 5.0
+```
+
+* `c()` は渡された引数を結合するための関数です。
+* `#` の後から続く文字列はコードとして実行されませんので、コメントして使えます。
+]
+
+.pull-right[
+
+
+```r
+(a + b) * c(a, b)
+```
+
+```
+## [1] 38.64 46.00
+```
+
+* R はベクトル処理という実行機構が特徴的です。
+* 上のコードは `\((a + b) \times a\)` と `\((a + b) \times b\)` を求めています。
+]
+
+RStudio の場合 `&lt;-` は `ALT + -` のショートカットを定義しています。
+
+---
+
+## R の主なデータタイプとデータ構造
+
+.pull-left[
+
+* 整数 integer
+* 実数 double, numeric
+* 複素数 complex number
+* 時系列 time-series (POSIX)
+* 文字列 character
+* 論理値 logical
+* 因子 factor
+]
+
+.pull-right[
+* ベクトル　vector
+* 配列 array, matrix
+* リスト list
+* テーブル（データフレーム） dataframe
+]
+
+---
+
+## データの作り方
+
+.pull-left[
+
+```r
+a = c(10.3, 20.2, 30.1)
+b = c("rabbit", "cat", "mouse")
+d = c(TRUE, FALSE, T)
+e = factor(c("nagasaki", "kagoshima", "fukuoka"))
+```
+
+
+```r
+z1 = list("A" = a, "B"= b, "D" = d, "E" = e) # リスト構造
+z1
+```
+
+```
+## $A
+## [1] 10.3 20.2 30.1
+## 
+## $B
+## [1] "rabbit" "cat"    "mouse" 
+## 
+## $D
+## [1]  TRUE FALSE  TRUE
+## 
+## $E
+## [1] nagasaki  kagoshima fukuoka  
+## Levels: fukuoka kagoshima nagasaki
+```
+
+]
+.pull-right[
+
+```r
+z2 = data.frame(a, b, d, e) # データフレーム構造
+z2
+```
+
+```
+##      a      b     d         e
+## 1 10.3 rabbit  TRUE  nagasaki
+## 2 20.2    cat FALSE kagoshima
+## 3 30.1  mouse  TRUE   fukuoka
+```
+]
+
+---
+
+## リスト・データフレームからベクトルを抽出する
+
+.pull-left[
+
+
+```r
+z1$A # リストの操作
+```
+
+```
+## [1] 10.3 20.2 30.1
+```
+
+```r
+# データフレームの操作
+z1[c(1, 2)] 
+```
+
+```
+## $A
+## [1] 10.3 20.2 30.1
+## 
+## $B
+## [1] "rabbit" "cat"    "mouse"
+```
+
+```r
+z2[c(1, 2)] # z2[, c(1,2)] も同じ
+```
+
+```
+##      a      b
+## 1 10.3 rabbit
+## 2 20.2    cat
+## 3 30.1  mouse
+```
+]
+
+.pull-right[
+
+
+```r
+z1[[2]][c(1, 2)] # リストの操作
+```
+
+```
+## [1] "rabbit" "cat"
+```
+
+```r
+# データフレームの操作
+z2[c(1, 3), ]
+```
+
+```
+##      a      b    d        e
+## 1 10.3 rabbit TRUE nagasaki
+## 3 30.1  mouse TRUE  fukuoka
+```
+
+```r
+z2[c(1, 3), c(2, 4) ]
+```
+
+```
+##        b        e
+## 1 rabbit nagasaki
+## 3  mouse  fukuoka
+```
+
+]
+
+
+---
+
+## リスト・データフレームからベクトルを抽出する
+
+.pull-left[
+
+
+
+```r
+z1$A
+```
+
+```
+## [1] 10.3 20.2 30.1
+```
+
+```r
+z1[c(1,2)]
+```
+
+```
+## $A
+## [1] 10.3 20.2 30.1
+## 
+## $B
+## [1] "rabbit" "cat"    "mouse"
+```
+
+```r
+z2[c(1,2)] # z2[c(1,2), ]
+```
+
+```
+##      a      b
+## 1 10.3 rabbit
+## 2 20.2    cat
+## 3 30.1  mouse
+```
+]
+
+.pull-right[
+* リスト・データフレームのベクトルから値を抽出する
+
+
+```r
+z1$A[2]
+```
+
+```
+## [1] 20.2
+```
+
+```r
+z2$b[c(1, 3)]
+```
+
+```
+## [1] "rabbit" "mouse"
+```
+
+```r
+z1$A[z1$B == "cat"] # == は = と = を２つくつけています。
+```
+
+```
+## [1] 20.2
+```
+
+```r
+z1$A[z1$D]
+```
+
+```
+## [1] 10.3 30.1
+```
+
+]
+
+---
+
+## 比較るときの注意点
+
+パソコンは 2 進数で計算しているので、数値の制度は限られています。
+
+つまり、パソコンにとって次の比較は負です！
+
+
+```r
+0.2 * 0.2 / 0.2 == 0.2 # = と =
+```
+
+```
+## [1] FALSE
+```
+
+数値の比較をする場合は `all.equal()` をつくいましょう。
+
+
+```r
+all.equal(0.2 * 0.2 / 0.2, 0.2, tolerance = 0) # 上のコードと同じ
+```
+
+```
+## [1] "Mean relative difference: 1.387779e-16"
+```
+
+```r
+all.equal(0.2 * 0.2 / 0.2, 0.2, tolerance = .Machine$double.eps) # 機械誤差を考慮した比較
+```
+
+```
+## [1] TRUE
+```
+
+* ちなみに比較用記号は `&lt;`, `&gt;`, `&gt;=` (`&gt;` と `=`), `&lt;=` (`&lt;` と `=`), `!=` (`!` と `=`), `==` (`=` と `=`)　です。
+
+---
+
+## 比較演算
+
+.pull-left[
+
+* 比較に使う論理演算子：`&amp;`（論理積 AND）, `|` （論理和 OR）, `!`（否定 NOT）
+
+
+```r
+A = c(5, 3, 2)
+B = c(5, 2, 1)
+
+# 論理積
+(A[1] &gt; B[1]) &amp; (A[1] == B[1])
+```
+
+```
+## [1] FALSE
+```
+
+```r
+# 論理和
+(A[1] &gt; B[1]) | (A[1] == B[1])
+```
+
+```
+## [1] TRUE
+```
+]
+
+.pull-right[
+
+
+```r
+# 否定と論理積
+!(A[1] &gt; B[1]) &amp; (A[1] == B[1])
+```
+
+```
+## [1] TRUE
+```
+
+```r
+# 否定と論理和
+(A[1] &lt; B[2]) | !(A[1] == B[1])
+```
+
+```
+## [1] FALSE
+```
+]
+
+---
+
+## 比較演算を使ったデータの抽出
+
+.pull-left[
+
+
+```r
+a = c(10.3, 20.2, 30.1)
+b = c("rabbit", "cat", "mouse")
+d = c(TRUE, FALSE, T)
+e = factor(c("nagasaki", 
+             "kagoshima", 
+             "fukuoka"))
+Z = data.frame(a, b, d, e)
+Z[Z$a &gt; 20, ]
+```
+
+```
+##      a     b     d         e
+## 2 20.2   cat FALSE kagoshima
+## 3 30.1 mouse  TRUE   fukuoka
+```
+]
+
+.pull-right[
+
+```r
+Z[Z$a &gt; 10 &amp; Z$a &lt; 20.2, ]
+```
+
+```
+##      a      b    d        e
+## 1 10.3 rabbit TRUE nagasaki
+```
+
+```r
+Z[Z$a &gt; 10 &amp; Z$a &lt;= 20.2, ]
+```
+
+```
+##      a      b     d         e
+## 1 10.3 rabbit  TRUE  nagasaki
+## 2 20.2    cat FALSE kagoshima
+```
+
+```r
+Z[identical(Z$a, 20) | !Z$d, ]
+```
+
+```
+##      a   b     d         e
+## 2 20.2 cat FALSE kagoshima
+```
+
+]
+
+---
+
+class: middle, center, inverse
+name: functions
+
+# R 関数の基本
+
+---
+
+## 関数の作り方
+
+**R の関数に２つのパーツがあります。**
+
+* Arguments: 引数
+* Code block: 関数のコードは `{}` の間に納めます。
+
+
+```r
+hello = function(x) {
+  if(!is.character(x)) {
+    stop("Please provide a character string.")
+  }
+  sprintf("Hello %s!", x)
+}
+
+hello(214)
+```
+
+```
+## Error in hello(214): Please provide a character string.
+```
+
+```r
+hello("Yukio")
+```
+
+```
+## [1] "Hello Yukio!"
+```
+
+---
+
+## 関数のスコープ (scope)（１）
+
+関数の中に作ったものは、関数の中にしか存在しない。
+
+
+
+
+```r
+sumofsquare = function(x) {
+  ss = (x - mean(x))^2 # 関数の外から見れない
+  ssq = sum(ss) # 関数の外から見れない
+  ssq # 関数の外に返す
+}
+data = sample(1:10, 5, replace = TRUE)
+data
+```
+
+```
+## [1]  7  6 10  7  4
+```
+
+```r
+value = sumofsquare(data)
+value
+```
+
+```
+## [1] 18.8
+```
+
+```r
+ss
+```
+
+```
+## Error in eval(expr, envir, enclos): object 'ss' not found
+```
+
+---
+
+## 関数のスコープ (scope)（２）
+
+ところが、関数は外の環境に存在するものはみれます。このように関数をくむと、バグを起こしやすいです。
+
+
+```r
+sumofsquare = function(x) {
+  ss = (s - mean(s))^2 # s は関数の外にあるが、関数の引数ではない
+  ssq = sum(ss) # 関数の外から見れない
+  ssq # 関数の外に返す
+}
+s = sample(100:1000, 5, replace = TRUE)
+s
+```
+
+```
+## [1] 169 291 862 713 721
+```
+
+```r
+data = sample(1:10, 5, replace = TRUE)
+data
+```
+
+```
+## [1] 5 7 9 7 3
+```
+
+```r
+value = sumofsquare(data)
+value　# これは s の平方和です。
+```
+
+```
+## [1] 365388.8
+```
+
+---
+
+## 諸略した関数の書き方と無名関数 (anonymous function)
+
+関数は次のようにもかけます。
+`\(x){...}` はラムダ式 (lambda expression) とも呼ばれています。
+
+
+```r
+add_one = \(x) { x + 1}
+add_one(5)
+```
+
+```
+## [1] 6
+```
+
+わざわざ名前をつけて関数を作らずにコードを書くときに使います。
+
+
+```r
+# どちれも無名関数ですが、２つ目の関数がはラムダ式です。
+z = 1:5
+sapply(z, FUN = function(s){s^2})
+```
+
+```
+## [1]  1  4  9 16 25
+```
+
+```r
+sapply(z, FUN = \(s){s^2})
+```
+
+```
+## [1]  1  4  9 16 25
+```
+
+---
+class: middle, center, inverse
+name: data-io
+
+# Data I/O
+
+データ解析をするためには, データを <svg aria-hidden="true" role="img" viewBox="0 0 581 512" style="height:1em;width:1.13em;vertical-align:-0.125em;margin-left:auto;margin-right:auto;font-size:inherit;fill:currentColor;overflow:visible;position:relative;"><path d="M581 226.6C581 119.1 450.9 32 290.5 32S0 119.1 0 226.6C0 322.4 103.3 402 239.4 418.1V480h99.1v-61.5c24.3-2.7 47.6-7.4 69.4-13.9L448 480h112l-67.4-113.7c54.5-35.4 88.4-84.9 88.4-139.7zm-466.8 14.5c0-73.5 98.9-133 220.8-133s211.9 40.7 211.9 133c0 50.1-26.5 85-70.3 106.4-2.4-1.6-4.7-2.9-6.4-3.7-10.2-5.2-27.8-10.5-27.8-10.5s86.6-6.4 86.6-92.7-90.6-87.9-90.6-87.9h-199V361c-74.1-21.5-125.2-67.1-125.2-119.9zm225.1 38.3v-55.6c57.8 0 87.8-6.8 87.8 27.3 0 36.5-38.2 28.3-87.8 28.3zm-.9 72.5H365c10.8 0 18.9 11.7 24 19.2-16.1 1.9-33 2.8-50.6 2.9v-22.1z"/></svg> に読み込む必要があります。
+
+ベースRの関数または外部パッケージの関数を使えば, 様々なデータファイルを簡単に読み込めます。
+
+---
+
+## ベースR 関数 `read.table()` や `read.csv()`
+
+基本的にはテキストファイルの読み込み関数を使います。
+
+* 読み込み関数：`read.csv()` や `read.table()`
+* 書き出し関数：`write.csv()` や `write.table()`
+
+`read.csv()` は `read.table()` のラッパー（rapper じゃなくて、wrapper のこと）です。
+つまり、`read.csv()` は `read.table()` をベースにしています。
+
+---
+
+## `read.table()` の引数 (arguments)
+
+* `file`                                            ：パスとファイル名
+* `header = FALSE`                                    ：1行目のデータは列名として扱う論理値
+* `sep = " "`                                       ：セルの区切り、この例の場合は半角スペース
+* `skip = 0`                                          ：ファイルの先頭から無視する行数
+* `as.is = !stringsAsFactors`                         ：文字列を自動的に因子に変換する論理値
+*                                                   ：または変換したくない列のインデックス
+* `stringsAsFactors = default.stringsAsFactors()`　 ：文字列を自動的に因子に変換する論理値
+* `fileEncoding = "CP932"`：文字コードの指定、この例の場合は Microsoft の Shift-JIS 文字コード
+
+`read.csv()` の場合、`sep = ","` がデフォルトです。
+
+---
+
+## 文字コードとは
+
+* 日本語を含むデータを読み込む場合には, 文字コードに注意しなければなりません。
+* Windows の場合の文字コードは CP932（Microsoftが拡張したShift-JISの文字コード）です。
+* OSX と Linux の場合は UTF-8 です。
+
+つまり, Windows で作られたデータファイルを読み込む場合, 文字コードを指定しなければなりません。
+
+
+```r
+# Windows で作ったファイルをOSX または Linux で読み込む
+df1 = read.csv("/path/file.csv", fileEncoding = "CP932")
+```
+
+---
+
+## `write.table()` arguments
+
+* `x`：出力したいオブジェクト (行列またはデータフレーム)
+* `file`：パスとファイル名
+* `sep = " "`：セルの区切り
+* `skip = 0`：ファイルの先頭から無視する行数
+* `row.names = TRUE`：行番号も出力する論理値
+* `col.names = TRUE`：列名も出力する論理値
+
+最初からコンマ区切りファイルの入出力をするのであれば, `read.csv()`と`write.csv()`を使いましょう。
+
+---
+
+## `read.csv()`
+
+Rで最も使いやすいデータファイルは CSV ファイルです。
+
+* CSV：コンマ区切り値 comma separated values
+
+.panelset[
+.panel[.panel-name[Code]
+
+```r
+filename = "Assignment_06_Dataset01.csv"
+rabbits = read.csv(filename) # デフォルトの設定で読み込む
+head(rabbits, n = 10) # n = 10 行まで表示する
+```
+]
+.panel[.panel-name[Output]
+
+```
+##       host scutum.width
+## 1  Rabbit1          380
+## 2  Rabbit1          376
+## 3  Rabbit1          360
+## 4  Rabbit1          368
+## 5  Rabbit1          372
+## 6  Rabbit1          366
+## 7  Rabbit1          374
+## 8  Rabbit1          382
+## 9  Rabbit2          350
+## 10 Rabbit2          356
+```
+]
+]
+
+---
+
+## データロガーのCSVファイルの読み込み例
+
+研究室では、オンセット社のデータロガーをよく使っています。
+
+ところが、次のようにコードを実行するとエラーが発生します。
+
+
+```r
+filename = "sali.nanao20130410.01.csv"
+salinity = read.csv(filename)
+```
+
+.small[
+
+```
+## Error in read.table(file = file, header = header, sep = sep, quote = quote, : more columns than column names
+```
+]
+
+エラーは *more columns than column names* つまり、列名の数よりも列の数が多い。
+
+ファイル内容を確認すると、１行目に"`Plot Title: sali.nanao20130410.01`" が記述されています。
+２行目に列名が記述されていて、３行目からがコンマ区切りデータです。
+
+```
+"Plot Title: sali.nanao20130410.01"
+"#","Date Time, GMT+09:00","High Range, μS/cm",...[omitted]
+1,2013/04/10 10:00:00,0.0,18.04,Logged,,,
+2,2013/04/10 10:01:00,0.0,17.33,,,,
+3,2013/04/10 10:02:00,0.0,18.36,,,,
+```
+
+`read.csv()` 関数に `skip` を渡しましょう。
+
+---
+
+## `read.csv()` に `skip` を渡す
+
+
+```r
+filename = "sali.nanao20130410.01.csv"
+salinity = read.csv(filename, skip = 1)
+head(salinity, n = 10)
+```
+
+.small[
+
+```
+##    X. Date.Time..GMT.09.00 High.Range..μS.cm Temp...C Coupler.Detached Coupler.Attached Stopped End.Of.File
+## 1   1  2013/04/10 10:00:00                 0    18.04           Logged                                     
+## 2   2  2013/04/10 10:01:00                 0    17.33                                                      
+## 3   3  2013/04/10 10:02:00                 0    18.36                                                      
+## 4   4  2013/04/10 10:03:00                 0    19.17                                                      
+## 5   5  2013/04/10 10:04:00                 0    19.35                                                      
+## 6   6  2013/04/10 10:05:00                 0    20.71                                                      
+## 7   7  2013/04/10 10:06:00                 0    18.74                                                      
+## 8   8  2013/04/10 10:07:00                 0    17.43                                                      
+## 9   9  2013/04/10 10:08:00                 0    16.50                                                      
+## 10 10  2013/04/10 10:09:00                 0    15.98
+```
+]
+
+---
+class: middle, center, inverse
+name: tidyverse
+
+# Welcome to the `tidyverse` 
+
+.left[
+
+&gt; Hadley Wickhamが開発した、タイディバースはRのプログラマーの中で最も使われているデータ分析パッケージです。
+&gt; データの読み込み、抽出、加工、可視化を助けてくれる関数の解析システムです。
+&gt; `tidyverse` の基礎となるアイディアは `tidy` な解析コードを開発することです。
+つまり、だれでも読めるすぐに実行できるコードのことですね。
+]
+
+---
+
+## `tidyverse`
+
+`tidyverse` はメタパッケージなので、`library(tidyverse)` を実行すると次の８つのパッケージが読み込まれます。
+
+* dplyr：データの変形・加工
+* forcats：`factor()` 因子が使いやすくなります
+* ggplot2：データの可視化・作図
+* purrr ：関数型プログラミング
+* readr ：CSV、TSVデータの読み込み
+* stringr ：文字列の操作が楽になる
+* tibble ：データフレームの操作が楽になる
+* tidyr ：データをタイディ (tidy) にして操作しやすくなる
+
+`tidyverse` の概念をもっと知りたい方は[tidyverse のマニフェスト](https://cran.r-project.org/web/packages/tidyverse/vignettes/manifesto.html)を読みましょう。
+
+---
+
+## I/O 関係の関数
+
+**読み込み関数**
+
+* `read_delim()`：一般性の高い関数, 区切りの指定が必要
+* `read_csv()`：コンマ区切りフィアルの読み込み（csv ファイル）
+* `read_table()`：ホワイトスペース区切りファイルの読み込み（タブ・スペース区切りファイル）
+* `read_rds()`：R オブジェクトの読み込み
+
+**書き出し関数**
+
+* `write_delim()`：一般性の高い関数, 区切りの指定が必要
+* `write_csv()`：コンマ区切りフィアルの書き出し
+* `write_table()`：ホワイトスペース区切りファイルの書き出し（タブ・スペース区切りファイル）
+* `write_rds()`：R オブジェクトの書き出し
+
+---
+
+## `read_csv()` の重要な引数
+
+* `file`：パスとファイル名
+* `col_names = TRUE`：TRUEのとき, 1行目は列名として使う, FALSE のときは列名を自動的に作成する, 文字列ベクトルを渡せば読み込み中に列名を付けられます
+* `col_types = NULL`：列のデータ型を指定できるが NULL のときは関数に任せる
+* `comment = ""`：コメント記号を指定し, コメント記号後の文字を無視する
+* `skip = 0`             先頭から無視する行数
+
+---
+
+## `read.csv()` と `read_csv()`との違い
+
+.pull-left[
+.small[
+`read.csv()`
+
+```r
+filename = "Assignment_06_Dataset01.csv"
+rabbits = read.csv(filename)
+class(rabbits)
+head(rabbits)
+```
+
+```
+## [1] "data.frame"
+```
+
+```
+##      host scutum.width
+## 1 Rabbit1          380
+## 2 Rabbit1          376
+## 3 Rabbit1          360
+## 4 Rabbit1          368
+## 5 Rabbit1          372
+## 6 Rabbit1          366
+```
+]
+
+* データのクラスは data.frame
+* ベースRのデータフレームは文字列や実数などが混ざっています
+]
+
+.pull-right[
+`read_csv()`
+.small[
+
+```r
+filename = "Assignment_06_Dataset01.csv"
+rabbits = read_csv(filename)
+class(rabbits)
+rabbits
+```
+
+```
+## [1] "spec_tbl_df" "tbl_df"      "tbl"         "data.frame"
+```
+
+```
+## # A tibble: 37 x 2
+##    host    scutum.width
+##    &lt;chr&gt;          &lt;dbl&gt;
+##  1 Rabbit1          380
+##  2 Rabbit1          376
+##  3 Rabbit1          360
+##  4 Rabbit1          368
+##  5 Rabbit1          372
+##  6 Rabbit1          366
+##  7 Rabbit1          374
+##  8 Rabbit1          382
+##  9 Rabbit2          350
+## 10 Rabbit2          356
+## # … with 27 more rows
+```
+]
+
+* データフレームを tidy化したもの
+* クラスに `tbl` や `tbl_df` などが追加されている
+* tibble の大きさや変数のtypeはすぐ確認できる
+]
+
+---
+
+### `tibble` には list 列を入れられる
+
+
+.pull-left[
+
+ちょっと高度の方法ですが, list を変数の要素として記録できます。
+
+
+```r
+a1 = list(1,5,1,3,5,1)
+a2 = list(2,3,5,2)
+a3 = list("A","b","E")
+tibble(a = 1:3, values = list(a1, a2, a3))
+```
+
+```
+## # A tibble: 3 x 2
+##       a values    
+##   &lt;int&gt; &lt;list&gt;    
+## 1     1 &lt;list [6]&gt;
+## 2     2 &lt;list [4]&gt;
+## 3     3 &lt;list [3]&gt;
+```
+
+`values` 列は list の list ですね。
+]
+.pull-right[
+
+
+&lt;img src="introduction_files/figure-html/unnamed-chunk-36-1.png" width="70%" /&gt;
+
+]
+
+---
+
+
+---
+
+## 列名・変数名について
+
+.pull-left[
+
+`data.frame()` は無効な変数名を自動的に変更します。
+
+
+```r
+data.frame(`1 name` = 1) |&gt; names()
+```
+
+```
+## [1] "X1.name"
+```
+
+`tibble()` はそのままにしてくれます。
+
+
+```r
+tibble(`1 name` = 1) |&gt; names()
+```
+
+```
+## [1] "1 name"
+```
+]
+
+.pull-right[
+
+
+**`data.frame()`の場合**
+* **有効な変数名：**文字または、ドット(.)と文字から始まる文字列。変数名に使用できるものは文字、数字、ドットとアンダースコア (_) だけです。
+* **無効な変数名の例：**`2021FY`, `2021 FY`, `2020-FY`, `FY-2021` は自動的に `X2021FY`, `X2021.FY`, `X2020.FY`, `FY.2021` に変更されます。
+
+**`tibble()`の場合**
+* 変数名はそのまま使えますが、使うときは `` ` `` `` ` `` （バクチック）に囲んでください。
+]
+
+**ところが!**
+どうしても `data.frame()` に無効な変数名を使いたいのであれば、`check.names = F` を渡してください。
+
+
+```r
+data.frame(`1 name` = 1, check.names = FALSE) |&gt; names()
+```
+
+```
+## [1] "1 name"
+```
+
+---
+
+## 引数を連続的に使える
+
+`tibble()`はこのように, 計算処理をしながらデータフレームを構築できます。
+
+
+```r
+tibble(x = 1:4, `x^2` = x^2, `sqrt(x)` = sqrt(x))
+```
+
+```
+## # A tibble: 4 x 3
+##       x `x^2` `sqrt(x)`
+##   &lt;int&gt; &lt;dbl&gt;     &lt;dbl&gt;
+## 1     1     1      1   
+## 2     2     4      1.41
+## 3     3     9      1.73
+## 4     4    16      2
+```
+
+---
+
+## ベクトルをリサイクルしない
+
+.pull-left[
+
+二つのベクトルの長さが異なるときに, データフレームを作ると, 小さいほうのベクトルは先頭から繰り返して使われます。ただし長いベクトルの要素数は短いベクトルの要素数で除算できる必要があります。
+
+
+```r
+x = 1:4
+y = 1:8
+data.frame(x, y)
+```
+
+```
+##   x y
+## 1 1 1
+## 2 2 2
+## 3 3 3
+## 4 4 4
+## 5 1 5
+## 6 2 6
+## 7 3 7
+## 8 4 8
+```
+]
+
+.pull-right[
+
+ところが, この機能はデータ解析時にバグの原因になります。`tibble()`はベクトルのリサイクルはできません。
+
+
+```r
+x = 1:4
+y = 1:8
+tibble(x, y)
+```
+
+```
+## Error: Tibble columns must have compatible sizes.
+## * Size 4: Existing data.
+## * Size 8: Column at position 2.
+## ℹ Only values of size one are recycled.
+```
+]
+
+---
+
+## readxl パッケージ
+
+`readxl` は Microsoft Excelファイルの読み込みに使えるパッケージです。
+
+
+```r
+library(readxl)
+```
+
+ファイルの読み込みには `read_excel()` を使いますが、研究室では `read_xlsx()` もよく使います。
+`read_excel()` は `read_xlsx()` のラッパーです。
+使い方は全くおなじです。
+
+**重要：** エクセルでデータの管理をした場合エクセルのオートコレクト機能によってデータがかってに変換されるので気をつけましょう。遺伝子の名前のオートコレクトによく問題が発生すると報告されています。とくに Excel と Google Sheets のオートコレクトはアグレッシブです。[Abeysooriya et al. 2021. PLOS Computational Biology](https://doi.org/10.1371/journal.pcbi.1008984)。
+
+---
+
+## `read_excel()` の主な引数
+
+* `path`：パスとファイル名
+* `sheet = NULL`：読み込むシート名またはシートインデックス
+* `range = NULL`：読み込む範囲, 例えば "B3:D8" または, "Data!B3:D8"
+* `col_names = TRUE`：1行目を列名として使う論理値
+* `col_types = NULL`：読み込む列のデータ型を指定できます (デフォルトは guess)
+* `na = ""`：欠損値の定義, 空セルは欠損値とされます
+* `skip = 0`：無視する行数
+* `n_max = Inf`：読み込む最大行数
+
+---
+
+## `read_excel()` の使用例（１）
+
+最初のシート (`sheet = 1`) の先頭から1行無視して (`skip = 1`) データを読み込む。
+
+
+```r
+filename = "Table 2.xlsx"
+exceldata = read_excel(filename, sheet = 1, skip = 1)
+exceldata
+```
+
+
+```
+## # A tibble: 12 x 6
+##    Month `WT (˚C)...2` `S.D.**...3` ...4  `WT (˚C)...5` `S.D.**...6`
+##    &lt;chr&gt;         &lt;dbl&gt;        &lt;dbl&gt; &lt;lgl&gt;         &lt;dbl&gt;        &lt;dbl&gt;
+##  1 Jan.           21.1        0.446 NA             16.5        0.428
+##  2 Feb.           21.3        0.441 NA             16.3        0.483
+##  3 Mar.           21.5        0.470 NA             16.5        0.579
+##  4 Apr.           21.8        0.554 NA             18.3        1.27 
+##  5 May            23.4        0.726 NA             21.1        1.08 
+##  6 Jun.           25.5        1.20  NA             22.9        1.02 
+##  7 Jul.           28.6        0.491 NA             26.6        1.15 
+##  8 Aug.           28.8        0.546 NA             28.5        0.470
+##  9 Sep.           28.5        0.375 NA             27.7        0.794
+## 10 Oct.           26.6        0.893 NA             24.4        1.05 
+## 11 Nov.           24.7        0.516 NA             21.6        0.928
+## 12 Dec.           22.8        0.720 NA             19.1        0.893
+```
+
+---
+
+## `read_excel()` の使用例（２）
+
+先程のように読み込むと、不都合な変数名に変換されました。次は、変数名も指定して読み込みます。
+
+
+```r
+filename = "Table 2.xlsx"
+col_names = c("month", "temperature1", "sd1", "empty","temperature2", "sd2")
+exceldata = read_excel(filename, sheet = 1, skip = 2, col_name = col_names)
+exceldata |&gt; print(n = 4)
+```
+
+
+```
+## # A tibble: 12 x 6
+##   month temperature1   sd1 empty temperature2   sd2
+##   &lt;chr&gt;        &lt;dbl&gt; &lt;dbl&gt; &lt;lgl&gt;        &lt;dbl&gt; &lt;dbl&gt;
+## 1 Jan.          21.1 0.446 NA            16.5 0.428
+## 2 Feb.          21.3 0.441 NA            16.3 0.483
+## 3 Mar.          21.5 0.470 NA            16.5 0.579
+## 4 Apr.          21.8 0.554 NA            18.3 1.27 
+## # … with 8 more rows
+```
+
+シートの２行目には変数名が記録されているので、`skip = 2` を渡しました。
+
+---
+
+## データの出力
+
+**CSVファイルの出力**
+
+
+```r
+fname = "table2_output.csv"
+exceldata |&gt; write_csv(file = fname) # 文字コードは UTF-8 です。
+```
+
+エクセルにCSVファイルを読み込んで文字化けした場合、`write_excel_csv()`を試してみてください。
+
+
+```r
+exceldata |&gt; write_excel_csv(file = fname)
+```
+
+**RDSファイルの出力**
+
+Rのオブジェクトをバイナリファイルとして保存したい場合は `write_rds()` を使います。
+
+
+```r
+fname = "table2_output.rds"
+exceldata |&gt; write_rds(file = fname)
+```
+
+
+---
+class: middle, center, inverse
+name: ggplot
+
+# `ggplot2` による作図
+
+---
+
+## データを読み込んだら、可視化しよう
+
+
+```r
+ggplot(exceldata) + geom_point(aes(x = month, y = temperature1))
+```
+
+&lt;img src="introduction_files/figure-html/unnamed-chunk-52-1.png" width="100%" /&gt;
+
+横軸の順序がおかしいですね。軸タイトルも変えたほうがいいですね。
+
+---
+
+## フォントを指定する
+
+`showtext` パッケージは図にシステムフォントを入れるために使います。
+システムフォントの他に、Google のウェッブフォントも使えます。
+
+```r
+library(showtext)
+```
+
+Google のウェッブフォントは `font_add_google()` を使います。
+
+```r
+font_add_google(name = "Noto Sans", family = "notosans")
+font_add_google(name = "Noto Sans JP", family = "notosans-jp") # 日本語フォント
+```
+
+`notosans` をデフォルトして設定します。
+
+```r
+showtext_auto()
+theme_replace(text = element_text(family = "notosans"))
+```
+
+---
+
+## 軸タイトルの関数
+
+軸タイトルや図のタイトルは `labs()` 関数でします。
+
+.panelset[
+.panel[.panel-name[Code]
+
+```r
+xlabel = "Month"
+ylabel = "'Temperature'~(degree*C)" # plotmath expression see ?plotmath
+ggplot(exceldata) + 
+  geom_point(aes(x = month, y = temperature1)) + 
+  labs(x = xlabel, 
+       y = parse(text = ylabel),
+       title = "Monthly mean water temperature") 
+```
+
+]
+
+.panel[.panel-name[Output]
+
+&lt;img src="introduction_files/figure-html/unnamed-chunk-56-1.png" width="100%" /&gt;
+
+]
+]
+
+---
+
+## 論文用に変える
+
+学術論文に記載する図の場合、図から余計なかざりを外します。
+研究室では `ggpubr` の `theme_pubr()` 関数を使っています。
+
+.panelset[
+.panel[.panel-name[Code]
+
+```r
+library(ggpubr)
+xlabel = "Month"
+ylabel = "'Temperature'~(degree*C)" # plotmath expression see ?plotmath
+ggplot(exceldata) + 
+  geom_point(aes(x = month, y = temperature1)) + 
+  labs(x = parse(text = xlabel), 
+       y = parse(text = ylabel))  +
+  theme_pubr(base_family = "notosans", base_size = 10)
+```
+
+]
+
+.panel[.panel-name[Output]
+
+&lt;img src="introduction_files/figure-html/unnamed-chunk-57-1.png" width="100%" /&gt;
+
+]
+]
+
+---
+
+## 月の順序をなおす
+
+もう気づいたと思いますが、横軸の月の順序が間違っています。
+`factor()` で、`month` 変数を整えます。
+
+.panelset[
+.panel[.panel-name[Code]
+
+```r
+# element_text() size is in points (pt)
+# 1 pt = 0.35 mm
+
+library(ggpubr)
+xlabel = "Month"
+ylabel = "'Temperature'~(degree*C)" # plotmath expression see ?plotmath
+
+levels = month.abb
+levels = str_c(levels, ifelse(levels == "May", "", "."))
+
+exceldata |&gt; 
+  mutate(month = factor(month, levels = levels)) |&gt; 
+  ggplot() + 
+  geom_point(aes(x = month, y = temperature1)) + 
+  labs(x = parse(text = xlabel), 
+       y = parse(text = ylabel))  +
+  theme_pubr(base_family = "notosans") +
+  theme(text = element_text(size = 10))
+```
+
+]
+
+.panel[.panel-name[Output]
+
+&lt;img src="introduction_files/figure-html/unnamed-chunk-58-1.png" width="100%" /&gt;
+
+]
+
+]
+
+
+
+
+---
+
+## 図を保存する
+
+図は PDF と PNG 形式で保存しましょう。
+
+**PDFファイル**
+`ggsave()` は最後の表示した図を書き出しします。
+`width` と `height` を指定したら必ず単位も指定しましょう (`units = "mm"`)。
+PDFファイルにシステムフォントを埋め込むなら、`device = cairo_pdf`も渡しましょう。
+
+
+```r
+wh = list(width = 80, height = 80) # 図の縦横幅
+pdffile = "temperature_plot.pdf"
+ggsave(pdffile, width = wh$width, height = wh$height, units = "mm", device = cairo_pdf)
+```
+
+**PNGファイル**
+直接PNGファイルに保存する場合は、画像の解像度 (`dpi = 300`) も必要です。
+
+```r
+pngfile = "temperature_plot.png"
+ggsave(pngfile, width = wh$width, height = wh$height, units = "mm", dpi = 300)
+```
+
+---
+
+## 保存の結果
+
+&lt;img src="introduction_files/figure-html/unnamed-chunk-62-1.png" width="75%" style="display: block; margin: auto;" /&gt;
+
+
+* `wh = list(width = 80, height = 80)` は同じだが、図は似ていません。
+* モニターでみたとき、PDF の解像度は 96 です。つまり、`dpi = 300` のPNGファイルはPDFの約３倍の広さです。
+
+---
+
+## 図のフォントを拡大して、PNGファイルを修正する
+
+.panelset[
+.panel[.panel-name[Code]
+
+
+
+```r
+DPI = 300
+scale = DPI / 96
+exceldata |&gt; 
+  mutate(month = factor(month, levels = levels)) |&gt; 
+  ggplot() + 
+  geom_point(aes(x = month, y = temperature1)) + 
+  labs(x = parse(text = xlabel), 
+       y = parse(text = ylabel))  +
+  theme_pubr(base_family = "notosans") +
+  theme(text = element_text(size = 10 * scale))
+
+pngfile = "temperature_plot.png"
+wh = list(width = 80, height = 80)
+ggsave(pngfile, width = wh$width, height = wh$height, units = "mm", dpi = DPI)
+```
+
+]
+
+.panel[.panel-name[Result]
+&lt;img src="introduction_files/figure-html/panel-1.png" width="75%" style="display: block; margin: auto;" /&gt;
+]
+]
+
+---
+
+## 研究室のワークフロー
+
+PNGファイルのDPIをいじるのが面倒なので、PDFをPNGに変換するのが楽です。
+月の頭文字をチックラベルにします。さらに、`lemon` パッケージの `geom_pointline()`を使ってみました。
+
+.panelset[
+.panel[.panel-name[ggplot2]
+
+```r
+library(lemon)
+xlabel = "Month"
+ylabel = "'Temperature'~(degree*C)" # plotmath expression see ?plotmath
+levels = month.abb
+levels = str_c(levels, ifelse(levels == "May", "", "."))
+labels = str_sub(month.abb, 1, 1)
+# 図の結果は plot1 にいれます。
+plot1 =   exceldata |&gt; mutate(month = factor(month, levels = levels)) |&gt; 
+  ggplot() + 
+  geom_pointline(aes(x = month, y = temperature1, group = 1)) +
+  scale_x_discrete(name = xlabel, labels = labels) +
+  scale_y_continuous(name = parse(text = ylabel), breaks = seq(21, 29, by = 1)) +
+  theme_pubr(base_family = "notosans") +
+  theme(text = element_text(size = 10))
+```
+]
+.panel[.panel-name[ggsave]
+
+まず、PDFファイルを保存します。システムフォントをPDFファイルに入れるためには `device = cairo_pdf` を渡します。
+
+
+
+
+```r
+wh = list(width = 80, height = 80) # 図の縦横幅
+pdffile = "temperature_plot.pdf"
+ggsave(pdffile, width = wh$width, height = wh$height, units = "mm", device = cairo_pdf)
+```
+]
+.panel[.panel-name[magick]
+
+ImageMagick のAPIを使って、PDFをPNGに変換します。
+この方法だと、DPIのややこしい変換は不要です。
+
+つぎに `magick` パッケージを読み込みます。
+
+
+```r
+library(magick) # imagemagick パッケージ
+```
+
+つづいて、PDF ファイルを 600 DPI で読み込む。
+
+```r
+img = image_read_pdf(pdffile, density = 600)
+```
+
+PDFファイルをPNGファイルに書き出す。
+
+
+```r
+img |&gt; image_write(pngfile)
+```
+
+]
+]
+
+---
+
+## 保存の結果
+
+&lt;img src="introduction_files/figure-html/panel2-1.png" width="80%" style="display: block; margin: auto;" /&gt;
+
+このとき、フォントサイズは 10 pt にしました：`theme(text = element_text(size = 10))`。
+
+---
+
+## データを追加してプロット
+
+.pull-left[
+
+```r
+library(viridis)
+xlabel = "Month"
+ylabel = "'Temperature'~(degree*C)" # plotmath expression see ?plotmath
+levels = month.abb
+levels = str_c(levels, ifelse(levels == "May", "", "."))
+labels = str_sub(month.abb, 1, 1)
+exceldata |&gt; mutate(month = factor(month, levels = levels)) |&gt; 
+  ggplot() + 
+  geom_pointline(aes(x = month, y = temperature1, color = "Group 1", shape = "Group 1", group = 1)) +
+  geom_pointline(aes(x = month, y = temperature2, color = "Group 2", shape = "Group 2", group = 1)) +
+  scale_x_discrete(name = xlabel, labels = labels) +
+  scale_y_continuous(name = parse(text = ylabel), breaks = seq(15, 30, by = 5), limits = c(15, 30)) +
+  scale_color_viridis("", option = "turbo", discrete = TRUE, begin = 0, end = 0.5) +
+  scale_shape_discrete("") +
+  theme_pubr(base_family = "notosans") +
+  theme(text = element_text(size = 10),
+        legend.position = c(1, 0),
+        legend.justification = c(1, 0),
+        legend.background = element_blank(),
+        legend.title = element_blank())
+```
+]
+.pull-right[
+
+&lt;img src="introduction_files/figure-html/unnamed-chunk-72-1.png" width="100%" /&gt;
+]
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"slideNumberFormat": "%current% / %total%",
+"highlightStyle": "monokai",
+"highlightLines": true,
+"ratio": "16:9",
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>

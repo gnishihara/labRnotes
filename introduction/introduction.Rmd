@@ -1,0 +1,1264 @@
+---
+title: "R の基礎"
+subtitle: "Rの基本操作の紹介とデータの入出力"
+author: 
+  - "GN Nishihara"
+output:
+  xaringan::moon_reader:
+    css: xaringan-themer.css
+    nature:
+      slideNumberFormat: "%current% / %total%"
+      highlightStyle: "monokai"
+      highlightLines: true
+      ratio: 16:9
+      countIncrementalSlides: false
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE, width = 200)
+options(tikzDefaultEngine = "xetex")
+
+knitr::opts_chunk$set(
+  fig.width=9, fig.height=3, fig.retina=3,
+  out.width = "100%",
+  cache = FALSE,
+  echo = TRUE,
+  message = FALSE, 
+  warning = FALSE,
+  hiline = TRUE
+)
+Sys.setlocale("LC_TIME", "en_US.UTF-8") # This is to set the server time locate to en_US.UTF-8
+```
+
+```{r xaringan-themer, include=FALSE, warning=FALSE}
+library(xaringanthemer)
+style_solarized_dark(
+  code_font_family = "Fira Code",
+  code_font_url = "https://cdn.jsdelivr.net/gh/tonsky/FiraCode@2/distr/fira_code.css"
+)
+
+library(xaringanExtra)
+xaringanExtra::use_xaringan_extra(c("tile_view", "animate_css", "tachyons", "panelset"))
+xaringanExtra::use_extra_styles(
+  hover_code_line = T
+)
+xaringanthemer::style_extra_css(
+  css = list(".small .remark-code" = list("font-size" = "0.6rem"),
+             "li" = list(margin = "10px 0"),
+             ".title-slide h3" = list(color = "#006fc5"))
+)
+
+```
+
+```{r, echo = FALSE}
+library(tidyverse)
+library(lubridate)
+library(readxl)
+library(knitr)
+library(kableExtra)
+library(magick)
+
+options(knitr.kable.NA = '')
+options(kableExtra.latex.load_packages = FALSE, tidyverse.quiet = TRUE)
+```
+
+## 目次
+
+* [Rの紹介・代入演算子・データ構造](#introduction)
+* [R関数の基本](#functions)
+* [データの入出力](#data-io)
+* [モダンRの紹介・データの入出力：`tidyverse`](#tidyverse)
+* [作図：`ggplot2`](#tidyverse)
+
+---
+
+class: middle, center, inverse
+name: introduction
+
+# `r fontawesome::fa(name = "r-project")` の紹介
+
+---
+
+## R? S?
+
+* R は統計解析に特化したプログラミング言語です。
+* R のルーツは 1970年代に Bell Laboratories で開発された S 言語です。
+* R は1991年に University of Auckland, New Zealand の Ross Ihaka と Robert Gentleman が買う初しました。
+
+この資料は `r version$version.string` 環境で作りました。
+
+---
+
+## 代入演算子とベクトルとは
+
+.pull-left[
+
+* 代入は `=` か `<-` (`<` と `-`) です。伝統的に使われる代入は `<-` ですが、私は `=` を使っています。
+
+```{r}
+# 二種類の代入と c() 関数
+a = 4.2
+b <- 5.0
+c(a, b)
+```
+
+* `c()` は渡された引数を結合するための関数です。
+* `#` の後から続く文字列はコードとして実行されませんので、コメントして使えます。
+]
+
+.pull-right[
+
+```{r}
+(a + b) * c(a, b)
+```
+
+* R はベクトル処理という実行機構が特徴的です。
+* 上のコードは $(a + b) \times a$ と $(a + b) \times b$ を求めています。
+]
+
+RStudio の場合 `<-` は `ALT + -` のショートカットを定義しています。
+
+---
+
+## R の主なデータタイプとデータ構造
+
+.pull-left[
+
+* 整数 integer
+* 実数 double, numeric
+* 複素数 complex number
+* 時系列 time-series (POSIX)
+* 文字列 character
+* 論理値 logical
+* 因子 factor
+]
+
+.pull-right[
+* ベクトル　vector
+* 配列 array, matrix
+* リスト list
+* テーブル（データフレーム） dataframe
+]
+
+---
+
+## データの作り方
+
+.pull-left[
+```{r}
+a = c(10.3, 20.2, 30.1)
+b = c("rabbit", "cat", "mouse")
+d = c(TRUE, FALSE, T)
+e = factor(c("nagasaki", "kagoshima", "fukuoka"))
+```
+
+```{r}
+z1 = list("A" = a, "B"= b, "D" = d, "E" = e) # リスト構造
+z1
+```
+
+]
+.pull-right[
+```{r}
+z2 = data.frame(a, b, d, e) # データフレーム構造
+z2
+```
+]
+
+---
+
+## リスト・データフレームからベクトルを抽出する
+
+.pull-left[
+
+```{r}
+z1$A # リストの操作
+
+# データフレームの操作
+z1[c(1, 2)] 
+z2[c(1, 2)] # z2[, c(1,2)] も同じ
+```
+]
+
+.pull-right[
+
+```{r}
+z1[[2]][c(1, 2)] # リストの操作
+
+# データフレームの操作
+z2[c(1, 3), ]
+z2[c(1, 3), c(2, 4) ]
+```
+
+]
+
+
+---
+
+## リスト・データフレームからベクトルを抽出する
+
+.pull-left[
+
+
+```{r}
+z1$A
+z1[c(1,2)]
+z2[c(1,2)] # z2[c(1,2), ]
+```
+]
+
+.pull-right[
+* リスト・データフレームのベクトルから値を抽出する
+
+```{r}
+z1$A[2]
+z2$b[c(1, 3)]
+z1$A[z1$B == "cat"] # == は = と = を２つくつけています。
+z1$A[z1$D]
+```
+
+]
+
+---
+
+## 比較るときの注意点
+
+パソコンは 2 進数で計算しているので、数値の制度は限られています。
+
+つまり、パソコンにとって次の比較は負です！
+
+```{r}
+0.2 * 0.2 / 0.2 == 0.2 # = と =
+```
+
+数値の比較をする場合は `all.equal()` をつくいましょう。
+
+```{r}
+all.equal(0.2 * 0.2 / 0.2, 0.2, tolerance = 0) # 上のコードと同じ
+all.equal(0.2 * 0.2 / 0.2, 0.2, tolerance = .Machine$double.eps) # 機械誤差を考慮した比較
+```
+
+* ちなみに比較用記号は `<`, `>`, `>=` (`>` と `=`), `<=` (`<` と `=`), `!=` (`!` と `=`), `==` (`=` と `=`)　です。
+
+---
+
+## 比較演算
+
+.pull-left[
+
+* 比較に使う論理演算子：`&`（論理積 AND）, `|` （論理和 OR）, `!`（否定 NOT）
+
+```{r}
+A = c(5, 3, 2)
+B = c(5, 2, 1)
+
+# 論理積
+(A[1] > B[1]) & (A[1] == B[1])
+# 論理和
+(A[1] > B[1]) | (A[1] == B[1])
+```
+]
+
+.pull-right[
+
+```{r}
+# 否定と論理積
+!(A[1] > B[1]) & (A[1] == B[1])
+
+# 否定と論理和
+(A[1] < B[2]) | !(A[1] == B[1])
+```
+]
+
+---
+
+## 比較演算を使ったデータの抽出
+
+.pull-left[
+
+```{r}
+a = c(10.3, 20.2, 30.1)
+b = c("rabbit", "cat", "mouse")
+d = c(TRUE, FALSE, T)
+e = factor(c("nagasaki", 
+             "kagoshima", 
+             "fukuoka"))
+Z = data.frame(a, b, d, e)
+Z[Z$a > 20, ]
+```
+]
+
+.pull-right[
+```{r}
+Z[Z$a > 10 & Z$a < 20.2, ]
+Z[Z$a > 10 & Z$a <= 20.2, ]
+Z[identical(Z$a, 20) | !Z$d, ]
+```
+
+]
+
+---
+
+class: middle, center, inverse
+name: functions
+
+# R 関数の基本
+
+---
+
+## 関数の作り方
+
+**R の関数に２つのパーツがあります。**
+
+* Arguments: 引数
+* Code block: 関数のコードは `{}` の間に納めます。
+
+```{r, error = TRUE}
+hello = function(x) {
+  if(!is.character(x)) {
+    stop("Please provide a character string.")
+  }
+  sprintf("Hello %s!", x)
+}
+
+hello(214)
+hello("Yukio")
+```
+
+---
+
+## 関数のスコープ (scope)（１）
+
+関数の中に作ったものは、関数の中にしか存在しない。
+
+```{r, echo = FALSE}
+set.seed (2021)
+```
+
+```{r, error = TRUE}
+sumofsquare = function(x) {
+  ss = (x - mean(x))^2 # 関数の外から見れない
+  ssq = sum(ss) # 関数の外から見れない
+  ssq # 関数の外に返す
+}
+data = sample(1:10, 5, replace = TRUE)
+data
+value = sumofsquare(data)
+value
+ss
+```
+
+---
+
+## 関数のスコープ (scope)（２）
+
+ところが、関数は外の環境に存在するものはみれます。このように関数をくむと、バグを起こしやすいです。
+
+```{r, error = TRUE}
+sumofsquare = function(x) {
+  ss = (s - mean(s))^2 # s は関数の外にあるが、関数の引数ではない
+  ssq = sum(ss) # 関数の外から見れない
+  ssq # 関数の外に返す
+}
+s = sample(100:1000, 5, replace = TRUE)
+s
+data = sample(1:10, 5, replace = TRUE)
+data
+value = sumofsquare(data)
+value　# これは s の平方和です。
+```
+
+---
+
+## 諸略した関数の書き方と無名関数 (anonymous function)
+
+関数は次のようにもかけます。
+`\(x){...}` はラムダ式 (lambda expression) とも呼ばれています。
+
+```{r}
+add_one = \(x) { x + 1}
+add_one(5)
+```
+
+わざわざ名前をつけて関数を作らずにコードを書くときに使います。
+
+```{r}
+# どちれも無名関数ですが、２つ目の関数がはラムダ式です。
+z = 1:5
+sapply(z, FUN = function(s){s^2})
+sapply(z, FUN = \(s){s^2})
+
+```
+
+---
+class: middle, center, inverse
+name: data-io
+
+# Data I/O
+
+データ解析をするためには, データを `r fontawesome::fa(name = "r-project")` に読み込む必要があります。
+
+ベースRの関数または外部パッケージの関数を使えば, 様々なデータファイルを簡単に読み込めます。
+
+---
+
+## ベースR 関数 `read.table()` や `read.csv()`
+
+基本的にはテキストファイルの読み込み関数を使います。
+
+* 読み込み関数：`read.csv()` や `read.table()`
+* 書き出し関数：`write.csv()` や `write.table()`
+
+`read.csv()` は `read.table()` のラッパー（rapper じゃなくて、wrapper のこと）です。
+つまり、`read.csv()` は `read.table()` をベースにしています。
+
+---
+
+## `read.table()` の引数 (arguments)
+
+* `file`                                            ：パスとファイル名
+* `header = FALSE`                                    ：1行目のデータは列名として扱う論理値
+* `sep = " "`                                       ：セルの区切り、この例の場合は半角スペース
+* `skip = 0`                                          ：ファイルの先頭から無視する行数
+* `as.is = !stringsAsFactors`                         ：文字列を自動的に因子に変換する論理値
+*                                                   ：または変換したくない列のインデックス
+* `stringsAsFactors = default.stringsAsFactors()`　 ：文字列を自動的に因子に変換する論理値
+* `fileEncoding = "CP932"`：文字コードの指定、この例の場合は Microsoft の Shift-JIS 文字コード
+
+`read.csv()` の場合、`sep = ","` がデフォルトです。
+
+---
+
+## 文字コードとは
+
+* 日本語を含むデータを読み込む場合には, 文字コードに注意しなければなりません。
+* Windows の場合の文字コードは CP932（Microsoftが拡張したShift-JISの文字コード）です。
+* OSX と Linux の場合は UTF-8 です。
+
+つまり, Windows で作られたデータファイルを読み込む場合, 文字コードを指定しなければなりません。
+
+```{r, eval = FALSE}
+# Windows で作ったファイルをOSX または Linux で読み込む
+df1 = read.csv("/path/file.csv", fileEncoding = "CP932")
+```
+
+---
+
+## `write.table()` arguments
+
+* `x`：出力したいオブジェクト (行列またはデータフレーム)
+* `file`：パスとファイル名
+* `sep = " "`：セルの区切り
+* `skip = 0`：ファイルの先頭から無視する行数
+* `row.names = TRUE`：行番号も出力する論理値
+* `col.names = TRUE`：列名も出力する論理値
+
+最初からコンマ区切りファイルの入出力をするのであれば, `read.csv()`と`write.csv()`を使いましょう。
+
+---
+
+## `read.csv()`
+
+Rで最も使いやすいデータファイルは CSV ファイルです。
+
+* CSV：コンマ区切り値 comma separated values
+
+.panelset[
+.panel[.panel-name[Code]
+```{r, eval = FALSE}
+filename = "Assignment_06_Dataset01.csv"
+rabbits = read.csv(filename) # デフォルトの設定で読み込む
+head(rabbits, n = 10) # n = 10 行まで表示する
+```
+]
+.panel[.panel-name[Output]
+```{r, echo = FALSE}
+filename = rprojroot::find_rstudio_root_file("introduction/Assignment_06_Dataset01.csv")
+rabbits = read.csv(filename)
+head(rabbits, n = 10)
+```
+]
+]
+
+---
+
+## データロガーのCSVファイルの読み込み例
+
+研究室では、オンセット社のデータロガーをよく使っています。
+
+ところが、次のようにコードを実行するとエラーが発生します。
+
+```{r, eval=F}
+filename = "sali.nanao20130410.01.csv"
+salinity = read.csv(filename)
+```
+
+.small[
+```{r, echo = F, error = T}
+filename = rprojroot::find_rstudio_root_file("introduction/sali.nanao20130410.01.csv")
+salinity = read.csv(filename)
+```
+]
+
+エラーは *more columns than column names* つまり、列名の数よりも列の数が多い。
+
+ファイル内容を確認すると、１行目に"`Plot Title: sali.nanao20130410.01`" が記述されています。
+２行目に列名が記述されていて、３行目からがコンマ区切りデータです。
+
+```
+"Plot Title: sali.nanao20130410.01"
+"#","Date Time, GMT+09:00","High Range, μS/cm",...[omitted]
+1,2013/04/10 10:00:00,0.0,18.04,Logged,,,
+2,2013/04/10 10:01:00,0.0,17.33,,,,
+3,2013/04/10 10:02:00,0.0,18.36,,,,
+```
+
+`read.csv()` 関数に `skip` を渡しましょう。
+
+---
+
+## `read.csv()` に `skip` を渡す
+
+```{r, eval=F}
+filename = "sali.nanao20130410.01.csv"
+salinity = read.csv(filename, skip = 1)
+head(salinity, n = 10)
+```
+
+.small[
+```{r, echo = F, error = T}
+filename = rprojroot::find_rstudio_root_file("introduction/sali.nanao20130410.01.csv")
+salinity = read.csv(filename, skip = 1)
+head(salinity, n = 10)
+```
+]
+
+---
+class: middle, center, inverse
+name: tidyverse
+
+# Welcome to the `tidyverse` 
+
+.left[
+
+> Hadley Wickhamが開発した、タイディバースはRのプログラマーの中で最も使われているデータ分析パッケージです。
+> データの読み込み、抽出、加工、可視化を助けてくれる関数の解析システムです。
+> `tidyverse` の基礎となるアイディアは `tidy` な解析コードを開発することです。
+つまり、だれでも読めるすぐに実行できるコードのことですね。
+]
+
+---
+
+## `tidyverse`
+
+`tidyverse` はメタパッケージなので、`library(tidyverse)` を実行すると次の８つのパッケージが読み込まれます。
+
+* dplyr：データの変形・加工
+* forcats：`factor()` 因子が使いやすくなります
+* ggplot2：データの可視化・作図
+* purrr ：関数型プログラミング
+* readr ：CSV、TSVデータの読み込み
+* stringr ：文字列の操作が楽になる
+* tibble ：データフレームの操作が楽になる
+* tidyr ：データをタイディ (tidy) にして操作しやすくなる
+
+`tidyverse` の概念をもっと知りたい方は[tidyverse のマニフェスト](https://cran.r-project.org/web/packages/tidyverse/vignettes/manifesto.html)を読みましょう。
+
+---
+
+## I/O 関係の関数
+
+**読み込み関数**
+
+* `read_delim()`：一般性の高い関数, 区切りの指定が必要
+* `read_csv()`：コンマ区切りフィアルの読み込み（csv ファイル）
+* `read_table()`：ホワイトスペース区切りファイルの読み込み（タブ・スペース区切りファイル）
+* `read_rds()`：R オブジェクトの読み込み
+
+**書き出し関数**
+
+* `write_delim()`：一般性の高い関数, 区切りの指定が必要
+* `write_csv()`：コンマ区切りフィアルの書き出し
+* `write_table()`：ホワイトスペース区切りファイルの書き出し（タブ・スペース区切りファイル）
+* `write_rds()`：R オブジェクトの書き出し
+
+---
+
+## `read_csv()` の重要な引数
+
+* `file`：パスとファイル名
+* `col_names = TRUE`：TRUEのとき, 1行目は列名として使う, FALSE のときは列名を自動的に作成する, 文字列ベクトルを渡せば読み込み中に列名を付けられます
+* `col_types = NULL`：列のデータ型を指定できるが NULL のときは関数に任せる
+* `comment = ""`：コメント記号を指定し, コメント記号後の文字を無視する
+* `skip = 0`             先頭から無視する行数
+
+---
+
+## `read.csv()` と `read_csv()`との違い
+
+.pull-left[
+.small[
+`read.csv()`
+```{r, eval = FALSE}
+filename = "Assignment_06_Dataset01.csv"
+rabbits = read.csv(filename)
+class(rabbits)
+head(rabbits)
+```
+```{r, echo = FALSE}
+filename = rprojroot::find_rstudio_root_file("introduction/Assignment_06_Dataset01.csv")
+rabbits = read.csv(filename)
+class(rabbits)
+head(rabbits)
+```
+]
+
+* データのクラスは data.frame
+* ベースRのデータフレームは文字列や実数などが混ざっています
+]
+
+.pull-right[
+`read_csv()`
+.small[
+```{r,eval = FALSE}
+filename = "Assignment_06_Dataset01.csv"
+rabbits = read_csv(filename)
+class(rabbits)
+rabbits
+```
+```{r, echo = F}
+filename = rprojroot::find_rstudio_root_file("introduction/Assignment_06_Dataset01.csv")
+rabbits = read_csv(filename)
+class(rabbits)
+rabbits
+```
+]
+
+* データフレームを tidy化したもの
+* クラスに `tbl` や `tbl_df` などが追加されている
+* tibble の大きさや変数のtypeはすぐ確認できる
+]
+
+---
+
+### `tibble` には list 列を入れられる
+
+
+.pull-left[
+
+ちょっと高度の方法ですが, list を変数の要素として記録できます。
+
+```{r}
+a1 = list(1,5,1,3,5,1)
+a2 = list(2,3,5,2)
+a3 = list("A","b","E")
+tibble(a = 1:3, values = list(a1, a2, a3))
+```
+
+`values` 列は list の list ですね。
+]
+.pull-right[
+```{r, echo = FALSE}
+
+```
+
+```{tikz, fig.ext = "png", echo = FALSE, engine.opts = list(template = "../tikz.latex"), out.width = "70%"}
+\begin{tikzpicture}[
+  hbox1/.style = {fill=blue!50,  draw=blue,  minimum width = 1.25cm, minimum height = 1.25cm},
+  hbox2/.style = {fill=green!50, draw=green, minimum width = 1.25cm, minimum height = 1.25cm},
+  box1/.style  = {fill=blue!10,  draw=blue,  minimum width = 1.25cm, minimum height = 1.25cm},
+  box2/.style  = {fill=green!10, draw=green, minimum width = 1.25cm, minimum height = 1.25cm},
+  sbox/.style  = {fill=green!10, draw=green, minimum width = 0.50cm, minimum height = 0.50cm}]
+
+\node[name = h1, hbox1] {a};
+\node[name = h2, hbox2, right=-\pgflinewidth/2 of h1] {values};
+\node[name = b11, box1, below=-\pgflinewidth/2 of h1] {1};
+\node[name = b21, box2, right=-\pgflinewidth/2 of b11] {list [6]};
+\node[name = b12, box1, below=-\pgflinewidth/2 of b11] {2};
+\node[name = b22, box2, right=-\pgflinewidth/2 of b12] {list [4]};
+\node[name = b13, box1, below=-\pgflinewidth/2 of b12] {3};
+\node[name = b23, box2, right=-\pgflinewidth/2 of b13] {list [3]};
+
+\node[name = l6a, sbox, right= 0 of b21.east, anchor=south west] {1};
+\node[name = l6b, sbox, right= 0 of l6a] {5};
+\node[name = l6c, sbox, right= 0 of l6b] {1};
+\node[name = l6d, sbox, below= 0 of l6a] {3};
+\node[name = l6e, sbox, below= 0 of l6b] {5};
+\node[name = l6f, sbox, below= 0 of l6c] {1};
+
+\node[name = l5a, sbox, right= 0 of b22.east, anchor=south west] {2};
+\node[name = l5b, sbox, right= 0 of l5a] {3};
+\node[name = l5c, sbox, right= 0 of l5b] {5};
+\node[name = l5d, sbox, below= 0 of l5a] {2};
+
+\node[name = l3a, sbox, right= 0 of b23.east, anchor=west] {A};
+\node[name = l3b, sbox, right= 0 of l3a] {b};
+\node[name = l3c, sbox, right= 0 of l3b] {E};
+
+\end{tikzpicture}
+```
+
+]
+
+---
+
+
+---
+
+## 列名・変数名について
+
+.pull-left[
+
+`data.frame()` は無効な変数名を自動的に変更します。
+
+```{r}
+data.frame(`1 name` = 1) |> names()
+```
+
+`tibble()` はそのままにしてくれます。
+
+```{r}
+tibble(`1 name` = 1) |> names()
+```
+]
+
+.pull-right[
+```{r, echo = FALSE}
+z = c("2021FY", "2021 FY", "2020-FY", "FY-2021")
+z2 = make.names(z)
+zout = stringr::str_glue("`{z}`") |> stringr::str_c(collapse = ", ")
+zout2 = stringr::str_glue("`{z2}`") |> stringr::str_c(collapse = ", ")
+```
+
+**`data.frame()`の場合**
+* **有効な変数名：**文字または、ドット(.)と文字から始まる文字列。変数名に使用できるものは文字、数字、ドットとアンダースコア (_) だけです。
+* **無効な変数名の例：**`r zout` は自動的に `r zout2` に変更されます。
+
+**`tibble()`の場合**
+* 変数名はそのまま使えますが、使うときは `` ` `` `` ` `` （バクチック）に囲んでください。
+]
+
+**ところが!**
+どうしても `data.frame()` に無効な変数名を使いたいのであれば、`check.names = F` を渡してください。
+
+```{r}
+data.frame(`1 name` = 1, check.names = FALSE) |> names()
+```
+
+---
+
+## 引数を連続的に使える
+
+`tibble()`はこのように, 計算処理をしながらデータフレームを構築できます。
+
+```{r}
+tibble(x = 1:4, `x^2` = x^2, `sqrt(x)` = sqrt(x))
+```
+
+---
+
+## ベクトルをリサイクルしない
+
+.pull-left[
+
+二つのベクトルの長さが異なるときに, データフレームを作ると, 小さいほうのベクトルは先頭から繰り返して使われます。ただし長いベクトルの要素数は短いベクトルの要素数で除算できる必要があります。
+
+```{r}
+x = 1:4
+y = 1:8
+data.frame(x, y)
+```
+]
+
+.pull-right[
+
+ところが, この機能はデータ解析時にバグの原因になります。`tibble()`はベクトルのリサイクルはできません。
+
+```{r, error=T}
+x = 1:4
+y = 1:8
+tibble(x, y)
+```
+]
+
+---
+
+## readxl パッケージ
+
+`readxl` は Microsoft Excelファイルの読み込みに使えるパッケージです。
+
+```{r, eval=F}
+library(readxl)
+```
+
+ファイルの読み込みには `read_excel()` を使いますが、研究室では `read_xlsx()` もよく使います。
+`read_excel()` は `read_xlsx()` のラッパーです。
+使い方は全くおなじです。
+
+**重要：** エクセルでデータの管理をした場合エクセルのオートコレクト機能によってデータがかってに変換されるので気をつけましょう。遺伝子の名前のオートコレクトによく問題が発生すると報告されています。とくに Excel と Google Sheets のオートコレクトはアグレッシブです。[Abeysooriya et al. 2021. PLOS Computational Biology](https://doi.org/10.1371/journal.pcbi.1008984)。
+
+---
+
+## `read_excel()` の主な引数
+
+* `path`：パスとファイル名
+* `sheet = NULL`：読み込むシート名またはシートインデックス
+* `range = NULL`：読み込む範囲, 例えば "B3:D8" または, "Data!B3:D8"
+* `col_names = TRUE`：1行目を列名として使う論理値
+* `col_types = NULL`：読み込む列のデータ型を指定できます (デフォルトは guess)
+* `na = ""`：欠損値の定義, 空セルは欠損値とされます
+* `skip = 0`：無視する行数
+* `n_max = Inf`：読み込む最大行数
+
+---
+
+## `read_excel()` の使用例（１）
+
+最初のシート (`sheet = 1`) の先頭から1行無視して (`skip = 1`) データを読み込む。
+
+```{r, eval = FALSE}
+filename = "Table 2.xlsx"
+exceldata = read_excel(filename, sheet = 1, skip = 1)
+exceldata
+```
+
+```{r, echo = FALSE}
+filename = rprojroot::find_rstudio_root_file("introduction/Table 2.xlsx")
+exceldata = read_excel(filename, sheet=1, skip = 1)
+exceldata
+```
+
+---
+
+## `read_excel()` の使用例（２）
+
+先程のように読み込むと、不都合な変数名に変換されました。次は、変数名も指定して読み込みます。
+
+```{r, eval = FALSE}
+filename = "Table 2.xlsx"
+col_names = c("month", "temperature1", "sd1", "empty","temperature2", "sd2")
+exceldata = read_excel(filename, sheet = 1, skip = 2, col_name = col_names)
+exceldata |> print(n = 4)
+```
+
+```{r, echo = FALSE}
+filename = rprojroot::find_rstudio_root_file("introduction/Table 2.xlsx")
+col_names = c("month", "temperature1", "sd1", "empty","temperature2", "sd2")
+exceldata = readxl::read_excel(filename, sheet=1, skip = 2, col_name = col_names)
+exceldata |> print(n = 4)
+```
+
+シートの２行目には変数名が記録されているので、`skip = 2` を渡しました。
+
+---
+
+## データの出力
+
+**CSVファイルの出力**
+
+```{r, eval = FALSE}
+fname = "table2_output.csv"
+exceldata |> write_csv(file = fname) # 文字コードは UTF-8 です。
+```
+
+エクセルにCSVファイルを読み込んで文字化けした場合、`write_excel_csv()`を試してみてください。
+
+```{r, eval = FALSE}
+exceldata |> write_excel_csv(file = fname)
+```
+
+**RDSファイルの出力**
+
+Rのオブジェクトをバイナリファイルとして保存したい場合は `write_rds()` を使います。
+
+```{r, eval = FALSE}
+fname = "table2_output.rds"
+exceldata |> write_rds(file = fname)
+```
+
+
+---
+class: middle, center, inverse
+name: ggplot
+
+# `ggplot2` による作図
+
+---
+
+## データを読み込んだら、可視化しよう
+
+```{r}
+ggplot(exceldata) + geom_point(aes(x = month, y = temperature1))
+```
+
+横軸の順序がおかしいですね。軸タイトルも変えたほうがいいですね。
+
+---
+
+## フォントを指定する
+
+`showtext` パッケージは図にシステムフォントを入れるために使います。
+システムフォントの他に、Google のウェッブフォントも使えます。
+```{r}
+library(showtext)
+```
+
+Google のウェッブフォントは `font_add_google()` を使います。
+```{r}
+font_add_google(name = "Noto Sans", family = "notosans")
+font_add_google(name = "Noto Sans JP", family = "notosans-jp") # 日本語フォント
+```
+
+`notosans` をデフォルトして設定します。
+```{r}
+showtext_auto()
+theme_replace(text = element_text(family = "notosans"))
+```
+
+---
+
+## 軸タイトルの関数
+
+軸タイトルや図のタイトルは `labs()` 関数でします。
+
+.panelset[
+```{r, panelset = TRUE}
+xlabel = "Month"
+ylabel = "'Temperature'~(degree*C)" # plotmath expression see ?plotmath
+ggplot(exceldata) + 
+  geom_point(aes(x = month, y = temperature1)) + 
+  labs(x = xlabel, 
+       y = parse(text = ylabel),
+       title = "Monthly mean water temperature") 
+```
+]
+
+---
+
+## 論文用に変える
+
+学術論文に記載する図の場合、図から余計なかざりを外します。
+研究室では `ggpubr` の `theme_pubr()` 関数を使っています。
+
+.panelset[
+```{r, panelset = TRUE}
+library(ggpubr)
+xlabel = "Month"
+ylabel = "'Temperature'~(degree*C)" # plotmath expression see ?plotmath
+ggplot(exceldata) + 
+  geom_point(aes(x = month, y = temperature1)) + 
+  labs(x = parse(text = xlabel), 
+       y = parse(text = ylabel))  +
+  theme_pubr(base_family = "notosans", base_size = 10)
+```
+]
+
+---
+
+## 月の順序をなおす
+
+もう気づいたと思いますが、横軸の月の順序が間違っています。
+`factor()` で、`month` 変数を整えます。
+
+.panelset[
+```{r, panelset = TRUE}
+# element_text() size is in points (pt)
+# 1 pt = 0.35 mm
+
+library(ggpubr)
+xlabel = "Month"
+ylabel = "'Temperature'~(degree*C)" # plotmath expression see ?plotmath
+
+levels = month.abb
+levels = str_c(levels, ifelse(levels == "May", "", "."))
+
+exceldata |> 
+  mutate(month = factor(month, levels = levels)) |> 
+  ggplot() + 
+  geom_point(aes(x = month, y = temperature1)) + 
+  labs(x = parse(text = xlabel), 
+       y = parse(text = ylabel))  +
+  theme_pubr(base_family = "notosans") +
+  theme(text = element_text(size = 10))
+
+```
+
+]
+
+
+```{r, echo = FALSE}
+library(magick)
+pout = exceldata |> 
+  mutate(month = factor(month, levels = levels)) |> 
+  ggplot() + 
+  geom_point(aes(x = month, y = temperature1)) + 
+  labs(x = parse(text = xlabel), 
+       y = parse(text = ylabel))  +
+  theme_pubr(base_family = "notosans") +
+  theme(text = element_text(size = 10))
+
+pdffile = rprojroot::find_rstudio_root_file("temperature_plot.pdf")
+pngfile = rprojroot::find_rstudio_root_file("temperature_plot.png")
+wh = c(80, 80)
+ggsave(pdffile, plot = pout, width = wh[1], height = wh[2], units = "mm", device = cairo_pdf)
+ggsave(pngfile, plot = pout, width = wh[1], height = wh[2], units = "mm", dpi = 300)
+
+i1 = image_read_pdf(pdffile, density = 236) |> image_resize("x500") 
+i2 = image_read(pngfile)|> image_resize("x500") 
+
+```
+
+---
+
+## 図を保存する
+
+図は PDF と PNG 形式で保存しましょう。
+
+**PDFファイル**
+`ggsave()` は最後の表示した図を書き出しします。
+`width` と `height` を指定したら必ず単位も指定しましょう (`units = "mm"`)。
+PDFファイルにシステムフォントを埋め込むなら、`device = cairo_pdf`も渡しましょう。
+
+```{r, eval = FALSE}
+wh = list(width = 80, height = 80) # 図の縦横幅
+pdffile = "temperature_plot.pdf"
+ggsave(pdffile, width = wh$width, height = wh$height, units = "mm", device = cairo_pdf)
+```
+
+**PNGファイル**
+直接PNGファイルに保存する場合は、画像の解像度 (`dpi = 300`) も必要です。
+```{r, eval = FALSE}
+pngfile = "temperature_plot.png"
+ggsave(pngfile, width = wh$width, height = wh$height, units = "mm", dpi = 300)
+```
+
+---
+
+## 保存の結果
+
+```{r, echo = FALSE, out.width="75%", fig.align="center"}
+img3 = image_blank(10, 500, color = "#002b36")
+image_append(c(i1, img3, i2)) |> 
+  image_annotate("PDF", location = "+400+0", size = 36, color = "#002b36", font = "Noto Sans") |>
+  image_annotate("PNG", location = "+900+0", size = 36, color = "#002b36", font = "Noto Sans") 
+```
+
+
+* `wh = list(width = 80, height = 80)` は同じだが、図は似ていません。
+* モニターでみたとき、PDF の解像度は 96 です。つまり、`dpi = 300` のPNGファイルはPDFの約３倍の広さです。
+
+---
+
+## 図のフォントを拡大して、PNGファイルを修正する
+
+.panelset[
+.panel[.panel-name[Code]
+```{r, include = FALSE, cache = F}
+DPI = 300
+# When done in xaringan the denominator is (72 / ggplot2::.pt).
+# But when done in an R script, the denominator is 96.
+# If this code is run in RStudio, use the second line.
+scale = DPI / 72 / .pt
+# scale = DPI / 96
+wh = list(width = 80, height = 80)
+pdffile = rprojroot::find_rstudio_root_file("temperature_plot2.pdf")
+pngfile = rprojroot::find_rstudio_root_file("temperature_plot2.png")
+
+pout = exceldata |> 
+  mutate(month = factor(month, levels = levels)) |> 
+  ggplot() + 
+  geom_point(aes(x = month, y = temperature1)) + 
+  labs(x = parse(text = xlabel), 
+       y = parse(text = ylabel))  +
+  theme_pubr(base_family = "notosans") +
+  theme(text = element_text(size = 10))
+
+ggsave(pdffile, plot = pout, width = wh$width, height = wh$height, units = "mm", dev = cairo_pdf)
+
+pout = exceldata |> 
+  mutate(month = factor(month, levels = levels)) |> 
+  ggplot() + 
+  geom_point(aes(x = month, y = temperature1)) + 
+  labs(x = parse(text = xlabel), 
+       y = parse(text = ylabel))  +
+  theme_pubr(base_family = "notosans") +
+  theme(text = element_text(size = 10 * scale))
+
+ggsave(pngfile, plot = pout, width = wh$width, height = wh$height, units = "mm", dpi = DPI)
+
+i1 = image_read_pdf(pdffile, density = 600) |> image_resize("x500") 
+i2 = image_read(pngfile)|> image_resize("x500") 
+
+```
+
+```{r, eval = FALSE}
+DPI = 300
+scale = DPI / 96
+exceldata |> 
+  mutate(month = factor(month, levels = levels)) |> 
+  ggplot() + 
+  geom_point(aes(x = month, y = temperature1)) + 
+  labs(x = parse(text = xlabel), 
+       y = parse(text = ylabel))  +
+  theme_pubr(base_family = "notosans") +
+  theme(text = element_text(size = 10 * scale))
+
+pngfile = "temperature_plot.png"
+wh = list(width = 80, height = 80)
+ggsave(pngfile, width = wh$width, height = wh$height, units = "mm", dpi = DPI)
+
+```
+
+]
+
+.panel[.panel-name[Result]
+```{r panel, echo = FALSE, out.width="75%", fig.align="center"}
+img3 = image_blank(10, 500, color = "#002b36")
+image_append(c(i1, img3, i2)) |> 
+  image_annotate("PDF", location = "+400+0", size = 36, color = "#002b36", font = "Noto Sans") |>
+  image_annotate("PNG", location = "+910+0", size = 36, color = "#002b36", font = "Noto Sans") 
+```
+]
+]
+
+---
+
+## 研究室のワークフロー
+
+PNGファイルのDPIをいじるのが面倒なので、PDFをPNGに変換するのが楽です。
+月の頭文字をチックラベルにします。さらに、`lemon` パッケージの `geom_pointline()`を使ってみました。
+
+.panelset[
+.panel[.panel-name[ggplot2]
+```{r}
+library(lemon)
+xlabel = "Month"
+ylabel = "'Temperature'~(degree*C)" # plotmath expression see ?plotmath
+levels = month.abb
+levels = str_c(levels, ifelse(levels == "May", "", "."))
+labels = str_sub(month.abb, 1, 1)
+# 図の結果は plot1 にいれます。
+plot1 =   exceldata |> mutate(month = factor(month, levels = levels)) |> 
+  ggplot() + 
+  geom_pointline(aes(x = month, y = temperature1, group = 1)) +
+  scale_x_discrete(name = xlabel, labels = labels) +
+  scale_y_continuous(name = parse(text = ylabel), breaks = seq(21, 29, by = 1)) +
+  theme_pubr(base_family = "notosans") +
+  theme(text = element_text(size = 10))
+```
+]
+.panel[.panel-name[ggsave]
+
+まず、PDFファイルを保存します。システムフォントをPDFファイルに入れるためには `device = cairo_pdf` を渡します。
+
+```{r, echo = FALSE}
+library(magick) # imagemagick パッケージ
+wh = list(width = 80, height = 80) # 図の縦横幅
+pdffile = rprojroot::find_rstudio_root_file("temperature_plot.pdf")
+pngfile = rprojroot::find_rstudio_root_file("temperature_plot.png")
+ggsave(pdffile, width = wh$width, height = wh$height, units = "mm", device = cairo_pdf)
+```
+
+```{r, eval = FALSE}
+wh = list(width = 80, height = 80) # 図の縦横幅
+pdffile = "temperature_plot.pdf"
+ggsave(pdffile, width = wh$width, height = wh$height, units = "mm", device = cairo_pdf)
+```
+]
+.panel[.panel-name[magick]
+
+ImageMagick のAPIを使って、PDFをPNGに変換します。
+この方法だと、DPIのややこしい変換は不要です。
+
+つぎに `magick` パッケージを読み込みます。
+
+```{r, eval = FALSE}
+library(magick) # imagemagick パッケージ
+```
+
+つづいて、PDF ファイルを 600 DPI で読み込む。
+```{r, eval = FALSE}
+img = image_read_pdf(pdffile, density = 600)
+```
+
+PDFファイルをPNGファイルに書き出す。
+
+```{r, eval = FALSE}
+img |> image_write(pngfile)
+```
+
+]
+]
+
+---
+
+## 保存の結果
+
+```{r panel2, echo = FALSE, out.width = "80%", fig.align="center"}
+pdffile = rprojroot::find_rstudio_root_file("temperature_plot.pdf")
+pngfile = rprojroot::find_rstudio_root_file("temperature_plot.png")
+img = image_read_pdf(pdffile, density = 600)
+img |> image_write(pngfile)
+img = img |> image_resize("x500")
+img2 = image_read(pngfile)|> image_resize("x500")
+img3 = image_blank(10, 500, color = "#002b36")
+image_append(c(img, img3, img2)) |> 
+  image_annotate("PDF", location = "+400+0", size = 36, color = "#002b36", font = "Noto Sans") |>
+  image_annotate("PNG", location = "+910+0", size = 36, color = "#002b36", font = "Noto Sans") 
+```
+
+このとき、フォントサイズは 10 pt にしました：`theme(text = element_text(size = 10))`。
+
+---
+
+## データを追加してプロット
+
+.pull-left[
+```{r, eval = FALSE}
+library(viridis)
+xlabel = "Month"
+ylabel = "'Temperature'~(degree*C)" # plotmath expression see ?plotmath
+levels = month.abb
+levels = str_c(levels, ifelse(levels == "May", "", "."))
+labels = str_sub(month.abb, 1, 1)
+exceldata |> mutate(month = factor(month, levels = levels)) |> 
+  ggplot() + 
+  geom_pointline(aes(x = month, y = temperature1, color = "Group 1", shape = "Group 1", group = 1)) +
+  geom_pointline(aes(x = month, y = temperature2, color = "Group 2", shape = "Group 2", group = 1)) +
+  scale_x_discrete(name = xlabel, labels = labels) +
+  scale_y_continuous(name = parse(text = ylabel), breaks = seq(15, 30, by = 5), limits = c(15, 30)) +
+  scale_color_viridis("", option = "turbo", discrete = TRUE, begin = 0, end = 0.5) +
+  scale_shape_discrete("") +
+  theme_pubr(base_family = "notosans") +
+  theme(text = element_text(size = 10),
+        legend.position = c(1, 0),
+        legend.justification = c(1, 0),
+        legend.background = element_blank(),
+        legend.title = element_blank())
+```
+]
+.pull-right[
+
+```{r, fig.width = 3, fig.height = 3, echo = FALSE}
+library(viridis)
+xlabel = "Month"
+ylabel = "'Temperature'~(degree*C)" # plotmath expression see ?plotmath
+levels = month.abb
+levels = str_c(levels, ifelse(levels == "May", "", "."))
+labels = str_sub(month.abb, 1, 1)
+exceldata |> mutate(month = factor(month, levels = levels)) |> 
+  ggplot() + 
+  geom_pointline(aes(x = month, y = temperature1, color = "Group 1", shape = "Group 1", group = 1)) +
+  geom_pointline(aes(x = month, y = temperature2, color = "Group 2", shape = "Group 2", group = 1)) +
+  scale_x_discrete(name = xlabel, labels = labels) +
+  scale_y_continuous(name = parse(text = ylabel), breaks = seq(15, 30, by = 5), limits = c(15, 30)) +
+  scale_color_viridis("", option = "turbo", discrete = TRUE, begin = 0, end = 0.5) +
+  scale_shape_discrete("") +
+  theme_pubr(base_family = "notosans") +
+  theme(text = element_text(size = 10),
+        legend.position = c(1, 0),
+        legend.justification = c(1, 0),
+        legend.background = element_blank(),
+        legend.title = element_blank())
+```
+]
