@@ -3,6 +3,10 @@
 
 ## Table of contents
 
+**臨海実習用スライドデッキ**
+* [Rの紹介](https://gnishihara.github.io/labRnotes/introduction/introduction.html) 未完成 (2021-08-14)
+
+**研究室スライドデッキ**
 
 * [基礎統計学用マニュアル](https://gnishihara.github.io/labRnotes/kisotokei/kisotokei.html) 基礎統計学用のRマニュアル・随時更新する
 * [Ordinal GAM](https://gnishihara.github.io/labRnotes/Ordinal_2DGAM/OrdinalGAM.html) 我部山くんのアマモ場データ
