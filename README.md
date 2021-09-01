@@ -19,3 +19,10 @@
 * [Tachyons](https://tachyons.io/)
 * [xaringanthemer](https://pkg.garrickadenbuie.com/xaringanthemer/index.html)
 * [mgcv 2017 ESA workshop](https://noamross.github.io/mgcv-esa-workshop/)
+
+## Rの日本語リンク
+
+* [Heavy Watal](https://heavywatal.github.io/about.html)
+* [統計解析フリーソフト R の備忘録頁 ver.3.1](http://cse.naro.affrc.go.jp/takezawa/r-tips/r.html)
+* [RjpWiki](http://www.okadajp.org/RWiki/)
+
