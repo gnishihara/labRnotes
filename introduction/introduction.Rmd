@@ -1,6 +1,8 @@
 ---
 title: 'R の基礎'
-subtitle: 'R の基本操作の紹介とデータの入出力'
+subtitle: |
+          | 'R の基本操作の紹介とデータの入出力'
+          | Updated: `r format(Sys.time(), "%Y-%m-%d %H:%M:%S")`
 author: 
   - "GN Nishihara"
 output:
