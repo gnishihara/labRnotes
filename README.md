@@ -3,11 +3,15 @@
 
 ## Table of contents
 
-**臨海実習用スライドデッキ**
+**公開臨海実習**
 
-* [Rの紹介](https://gnishihara.github.io/labRnotes/introduction/introduction.html) 未完成 (2021-09-03)
+* [Rの紹介](https://gnishihara.github.io/labRnotes/introduction/introduction.html) 未完成 (2021-09-03) **スライドデッキ**
 
-**研究室スライドデッキ**
+* 実習に必要なパッケージ：`tidyverse`, `lubridate`, `showtext`, `ggpubr`, `lemon`
+* あると便利なパッケージ：`magick`, `scales`
+
+
+**研究室のスライドデッキ**
 
 * [基礎統計学用マニュアル](https://gnishihara.github.io/labRnotes/kisotokei/kisotokei.html) 基礎統計学用のRマニュアル・随時更新する
 * [Ordinal GAM](https://gnishihara.github.io/labRnotes/Ordinal_2DGAM/OrdinalGAM.html) 我部山くんのアマモ場データ
