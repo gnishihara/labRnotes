@@ -1,6 +1,6 @@
 ---
-title: "R の基礎"
-subtitle: "Rの基本操作の紹介とデータの入出力"
+title: 'R の基礎'
+subtitle: 'R の基本操作の紹介とデータの入出力'
 author: 
   - "GN Nishihara"
 output:
@@ -15,11 +15,13 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-options(htmltools.dir.version = FALSE, width = 200)
+options(htmltools.dir.version = FALSE, width = 120)
 options(tikzDefaultEngine = "xetex")
-
+# For a full width panelset plot use fig.width=6,fig.height = 2.5
+# For half width plot  use fig.width = 3, fig.height=2.5
+ 
 knitr::opts_chunk$set(
-  fig.width=9, fig.height=3, fig.retina=3,
+  fig.width=6, fig.height=2.5, fig.retina=3,
   out.width = "100%",
   cache = FALSE,
   echo = TRUE,
@@ -45,6 +47,7 @@ xaringanExtra::use_extra_styles(
 xaringanthemer::style_extra_css(
   css = list(".small .remark-code" = list("font-size" = "0.6rem"),
              "li" = list(margin = "10px 0"),
+             ".large li" = list("font-size" = "1.5rem"),
              ".title-slide h3" = list(color = "#006fc5"))
 )
 
@@ -64,11 +67,32 @@ options(kableExtra.latex.load_packages = FALSE, tidyverse.quiet = TRUE)
 
 ## 目次
 
-* [Rの紹介・代入演算子・データ構造](#introduction)
-* [R関数の基本](#functions)
+* [`r fontawesome::fa(name = "r-project")` の紹介・代入演算子・データ構造](#introduction)
+* [`r fontawesome::fa(name = "r-project")` 関数の基本](#functions)
 * [データの入出力](#data-io)
-* [モダンRの紹介・データの入出力：`tidyverse`](#tidyverse)
+* [モダン `r fontawesome::fa(name = "r-project")` の紹介・データの入出力：`tidyverse`](#tidyverse)
+* [データ加工・操作：`dplyr`](#tidyverse)
 * [作図：`ggplot2`](#tidyverse)
+
+---
+
+## この資料・実習について
+
+* `r fontawesome::fa(name = "r-project")` と RStudio はインストール済み
+* `r fontawesome::fa(name = "r-project")`における単純計算方法はできる
+
+* オレンジ色の文字はクリックできるリンクです。たとえば、下にある Fira Code についての文書はクリックできます。
+* [Fira Code プログラミング用等幅フォントを使っています。](https://github.com/tonsky/FiraCode)
+* このフォントにより、演算子は見やすくなります
+
+**たとえば**
+
+* `<-` は `<` と `-` の合字 (リガチャー, ligature) です `(ALT + -)`
+* `|>` は `|` と `>` の合字です `(CTRL + SHIFT + M)`
+* `<=` は `<` と `=` の合字です
+* `!=` は `!` と `=` の合字です
+
+**この資料は `r version$version.string` 環境で作りました。使用したパッケージは `xaringan` と `xaringanthemer` です。**
 
 ---
 
@@ -79,21 +103,23 @@ name: introduction
 
 ---
 
-## R? S?
+## R 統計解析プログラミング言語
 
-* R は統計解析に特化したプログラミング言語です。
-* R のルーツは 1970年代に Bell Laboratories で開発された S 言語です。
-* R は1991年に University of Auckland, New Zealand の Ross Ihaka と Robert Gentleman が買う初しました。
+* `r fontawesome::fa(name = "r-project")` は統計解析に特化したプログラミング言語です。
+* `r fontawesome::fa(name = "r-project")` のルーツは 1970年代に Bell Laboratories で開発された S 言語です。
+* `r fontawesome::fa(name = "r-project")` は1991年に University of Auckland, New Zealand の Ross Ihaka と Robert Gentleman が開発しました。
 
-この資料は `r version$version.string` 環境で作りました。
+* 私は 2004 年から `r fontawesome::fa(name = "r-project")` を使っています。
+
 
 ---
 
-## 代入演算子とベクトルとは
+## 代入演算子 (assignment operator) とベクトル (vector) とは
 
 .pull-left[
 
 * 代入は `=` か `<-` (`<` と `-`) です。伝統的に使われる代入は `<-` ですが、私は `=` を使っています。
+* 左辺は変数名、右辺は値です。
 
 ```{r}
 # 二種類の代入と c() 関数
@@ -102,8 +128,8 @@ b <- 5.0
 c(a, b)
 ```
 
-* `c()` は渡された引数を結合するための関数です。
-* `#` の後から続く文字列はコードとして実行されませんので、コメントして使えます。
+* `c()` は渡された引数を結合します。
+* `#` の後から続く文字列はコードとして実行されません。実行されない文書はコメントと呼びます。
 ]
 
 .pull-right[
@@ -144,101 +170,91 @@ RStudio の場合 `<-` は `ALT + -` のショートカットを定義してい�
 
 ## データの作り方
 
-.pull-left[
+**ベクトル**
 ```{r}
 a = c(10.3, 20.2, 30.1)
-b = c("rabbit", "cat", "mouse")
+b = c("rabbit", "cat", "mouse", "dog")
 d = c(TRUE, FALSE, T)
 e = factor(c("nagasaki", "kagoshima", "fukuoka"))
 ```
 
+**リスト**
+
+ベクトルの長さは異なってもいい。
+ここでは、リストの要素名を指定しました。
+
 ```{r}
-z1 = list("A" = a, "B"= b, "D" = d, "E" = e) # リスト構造
-z1
+z1 = list("A" = a, "B"= b, "D" = d, "E" = e)
 ```
 
-]
-.pull-right[
+**データフレーム**
+
+ベクトルの長さを揃える必要がある。
+ここでは`b[1:3]`を`b`に渡すことで、変数名を指定しました。
+
 ```{r}
-z2 = data.frame(a, b, d, e) # データフレーム構造
-z2
+z2 = data.frame(a, b = b[1:3], d, e)
 ```
-]
 
 ---
 
-## リスト・データフレームからベクトルを抽出する
+## リストの構造を確認しよう
 
-.pull-left[
-
-```{r}
-z1$A # リストの操作
-
-# データフレームの操作
-z1[c(1, 2)] 
-z2[c(1, 2)] # z2[, c(1,2)] も同じ
-```
-]
-
-.pull-right[
+Rオブジェクトの構造 (structure) は `str()` で確認します。
 
 ```{r}
-z1[[2]][c(1, 2)] # リストの操作
-
-# データフレームの操作
-z2[c(1, 3), ]
-z2[c(1, 3), c(2, 4) ]
+str(z1)
 ```
-
-]
-
 
 ---
 
-## リスト・データフレームからベクトルを抽出する
+## リストからデータを抽出する
 
-.pull-left[
-
+リストの要素は次のように抽出できます。
 
 ```{r}
 z1$A
-z1[c(1,2)]
-z2[c(1,2)] # z2[c(1,2), ]
+```
+
+リストからの抽出方法は `$` 以外に, `[` や `[[` でもできます。
+
+```{r, eval = FALSE}
+z1[c("A", "D")]
+z1[c(1,4)]
+z1[[2]]
+z1[[c(2,3)]]
+z1[[2]][c(1,2)]
+```
+
+---
+
+## データフレームの構造を確認しよう
+
+```{r}
+str(z2)
+```
+
+リストと似ていますが、そもそもデータフレームはリストです。
+つまり、リストと同じように操作できます。
+
+.pull-left[
+
+
+```{r}
+z2$a
 ```
 ]
 
 .pull-right[
-* リスト・データフレームのベクトルから値を抽出する
 
-```{r}
-z1$A[2]
-z2$b[c(1, 3)]
-z1$A[z1$B == "cat"] # == は = と = を２つくつけています。
-z1$A[z1$D]
+```{r, eval = FALSE}
+z2[c("a", "d")]
+z2[c(1, 4)]
+z2[[2]]
+z2[[c(2,3)]]
+z2[[2]][c(1,2)]
 ```
-
 ]
-
----
-
-## 比較るときの注意点
-
-パソコンは 2 進数で計算しているので、数値の制度は限られています。
-
-つまり、パソコンにとって次の比較は負です！
-
-```{r}
-0.2 * 0.2 / 0.2 == 0.2 # = と =
-```
-
-数値の比較をする場合は `all.equal()` をつくいましょう。
-
-```{r}
-all.equal(0.2 * 0.2 / 0.2, 0.2, tolerance = 0) # 上のコードと同じ
-all.equal(0.2 * 0.2 / 0.2, 0.2, tolerance = .Machine$double.eps) # 機械誤差を考慮した比較
-```
-
-* ちなみに比較用記号は `<`, `>`, `>=` (`>` と `=`), `<=` (`<` と `=`), `!=` (`!` と `=`), `==` (`=` と `=`)　です。
 
 ---
 
@@ -299,19 +315,43 @@ Z[identical(Z$a, 20) | !Z$d, ]
 
 ---
 
+## **重要!** 数値を比較について
+
+パソコンは 2 進数で計算しているので、数値は正確ではない！
+
+**たとえば：**
+
+```{r}
+0.2 * 0.2 / 0.2 == 0.2 # = と =
+```
+
+数値の比較をする場合は `all.equal()` を使いましょう。
+
+```{r}
+all.equal(0.2 * 0.2 / 0.2, 0.2, tolerance = 0) # 上のコードと同じ
+all.equal(0.2 * 0.2 / 0.2, 0.2, tolerance = .Machine$double.eps) # 機械誤差を考慮した比較
+```
+
+* ちなみに比較用記号は `<`, `>`, `>=` (`>` と `=`), `<=` (`<` と `=`), `!=` (`!` と `=`), `==` (`=` と `=`)　です。
+
+---
+
 class: middle, center, inverse
 name: functions
 
 # R 関数の基本
 
+関数をつくることにより、`r fontawesome::fa(name = "r-project")` での作業がとても楽になります。
+コードを繰り返して使うなら関数をつくりましょう。
+
 ---
 
 ## 関数の作り方
 
-**R の関数に２つのパーツがあります。**
+**R の関数に 2 つのパーツがあります。**
 
-* Arguments: 引数
-* Code block: 関数のコードは `{}` の間に納めます。
+* **Arguments**: 引数
+* **Code block**: 関数のコードは `{}` の間に納めます。
 
 ```{r, error = TRUE}
 hello = function(x) {
@@ -352,7 +392,8 @@ ss
 
 ## 関数のスコープ (scope)（２）
 
-ところが、関数は外の環境に存在するものはみれます。このように関数をくむと、バグを起こしやすいです。
+ところが、関数は外の環境に存在するものは見れます。
+このように関数を作ると、バグを起こしやすいので、注意。
 
 ```{r, error = TRUE}
 sumofsquare = function(x) {
@@ -380,164 +421,20 @@ add_one = \(x) { x + 1}
 add_one(5)
 ```
 
-わざわざ名前をつけて関数を作らずにコードを書くときに使います。
+無名関数をつくるときに便利な書き方です。
 
 ```{r}
 # どちれも無名関数ですが、２つ目の関数がはラムダ式です。
 z = 1:5
 sapply(z, FUN = function(s){s^2})
 sapply(z, FUN = \(s){s^2})
-
 ```
-
----
-class: middle, center, inverse
-name: data-io
-
-# Data I/O
-
-データ解析をするためには, データを `r fontawesome::fa(name = "r-project")` に読み込む必要があります。
-
-ベースRの関数または外部パッケージの関数を使えば, 様々なデータファイルを簡単に読み込めます。
-
----
-
-## ベースR 関数 `read.table()` や `read.csv()`
-
-基本的にはテキストファイルの読み込み関数を使います。
-
-* 読み込み関数：`read.csv()` や `read.table()`
-* 書き出し関数：`write.csv()` や `write.table()`
-
-`read.csv()` は `read.table()` のラッパー（rapper じゃなくて、wrapper のこと）です。
-つまり、`read.csv()` は `read.table()` をベースにしています。
-
----
-
-## `read.table()` の引数 (arguments)
-
-* `file`                                            ：パスとファイル名
-* `header = FALSE`                                    ：1行目のデータは列名として扱う論理値
-* `sep = " "`                                       ：セルの区切り、この例の場合は半角スペース
-* `skip = 0`                                          ：ファイルの先頭から無視する行数
-* `as.is = !stringsAsFactors`                         ：文字列を自動的に因子に変換する論理値
-*                                                   ：または変換したくない列のインデックス
-* `stringsAsFactors = default.stringsAsFactors()`　 ：文字列を自動的に因子に変換する論理値
-* `fileEncoding = "CP932"`：文字コードの指定、この例の場合は Microsoft の Shift-JIS 文字コード
-
-`read.csv()` の場合、`sep = ","` がデフォルトです。
-
----
-
-## 文字コードとは
-
-* 日本語を含むデータを読み込む場合には, 文字コードに注意しなければなりません。
-* Windows の場合の文字コードは CP932（Microsoftが拡張したShift-JISの文字コード）です。
-* OSX と Linux の場合は UTF-8 です。
-
-つまり, Windows で作られたデータファイルを読み込む場合, 文字コードを指定しなければなりません。
-
-```{r, eval = FALSE}
-# Windows で作ったファイルをOSX または Linux で読み込む
-df1 = read.csv("/path/file.csv", fileEncoding = "CP932")
-```
-
----
-
-## `write.table()` arguments
-
-* `x`：出力したいオブジェクト (行列またはデータフレーム)
-* `file`：パスとファイル名
-* `sep = " "`：セルの区切り
-* `skip = 0`：ファイルの先頭から無視する行数
-* `row.names = TRUE`：行番号も出力する論理値
-* `col.names = TRUE`：列名も出力する論理値
-
-最初からコンマ区切りファイルの入出力をするのであれば, `read.csv()`と`write.csv()`を使いましょう。
-
----
-
-## `read.csv()`
-
-Rで最も使いやすいデータファイルは CSV ファイルです。
-
-* CSV：コンマ区切り値 comma separated values
-
-.panelset[
-.panel[.panel-name[Code]
-```{r, eval = FALSE}
-filename = "Assignment_06_Dataset01.csv"
-rabbits = read.csv(filename) # デフォルトの設定で読み込む
-head(rabbits, n = 10) # n = 10 行まで表示する
-```
-]
-.panel[.panel-name[Output]
-```{r, echo = FALSE}
-filename = rprojroot::find_rstudio_root_file("introduction/Assignment_06_Dataset01.csv")
-rabbits = read.csv(filename)
-head(rabbits, n = 10)
-```
-]
-]
-
----
-
-## データロガーのCSVファイルの読み込み例
-
-研究室では、オンセット社のデータロガーをよく使っています。
-
-ところが、次のようにコードを実行するとエラーが発生します。
-
-```{r, eval=F}
-filename = "sali.nanao20130410.01.csv"
-salinity = read.csv(filename)
-```
-
-.small[
-```{r, echo = F, error = T}
-filename = rprojroot::find_rstudio_root_file("introduction/sali.nanao20130410.01.csv")
-salinity = read.csv(filename)
-```
-]
-
-エラーは *more columns than column names* つまり、列名の数よりも列の数が多い。
-
-ファイル内容を確認すると、１行目に"`Plot Title: sali.nanao20130410.01`" が記述されています。
-２行目に列名が記述されていて、３行目からがコンマ区切りデータです。
-
-```
-"Plot Title: sali.nanao20130410.01"
-"#","Date Time, GMT+09:00","High Range, μS/cm",...[omitted]
-1,2013/04/10 10:00:00,0.0,18.04,Logged,,,
-2,2013/04/10 10:01:00,0.0,17.33,,,,
-3,2013/04/10 10:02:00,0.0,18.36,,,,
-```
-
-`read.csv()` 関数に `skip` を渡しましょう。
-
----
-
-## `read.csv()` に `skip` を渡す
-
-```{r, eval=F}
-filename = "sali.nanao20130410.01.csv"
-salinity = read.csv(filename, skip = 1)
-head(salinity, n = 10)
-```
-
-.small[
-```{r, echo = F, error = T}
-filename = rprojroot::find_rstudio_root_file("introduction/sali.nanao20130410.01.csv")
-salinity = read.csv(filename, skip = 1)
-head(salinity, n = 10)
-```
-]
 
 ---
 class: middle, center, inverse
 name: tidyverse
 
-# Welcome to the `tidyverse` 
+# `tidyverse` 
 
 .left[
 
@@ -551,7 +448,7 @@ name: tidyverse
 
 ## `tidyverse`
 
-`tidyverse` はメタパッケージなので、`library(tidyverse)` を実行すると次の８つのパッケージが読み込まれます。
+`tidyverse` はメタパッケージなので、`library(tidyverse)` を実行すると次の 8 つのパッケージが読み込まれます。
 
 * dplyr：データの変形・加工
 * forcats：`factor()` 因子が使いやすくなります
@@ -566,83 +463,18 @@ name: tidyverse
 
 ---
 
-## I/O 関係の関数
+class: middle, center, inverse
+name: data-io
 
-**読み込み関数**
+# Data I/O
 
-* `read_delim()`：一般性の高い関数, 区切りの指定が必要
-* `read_csv()`：コンマ区切りフィアルの読み込み（csv ファイル）
-* `read_table()`：ホワイトスペース区切りファイルの読み込み（タブ・スペース区切りファイル）
-* `read_rds()`：R オブジェクトの読み込み
+データ解析をするためには, データを `r fontawesome::fa(name = "r-project")` に読み込む必要があります。
 
-**書き出し関数**
-
-* `write_delim()`：一般性の高い関数, 区切りの指定が必要
-* `write_csv()`：コンマ区切りフィアルの書き出し
-* `write_table()`：ホワイトスペース区切りファイルの書き出し（タブ・スペース区切りファイル）
-* `write_rds()`：R オブジェクトの書き出し
+ベースRの関数または外部パッケージの関数を使えば, 様々なデータファイルを簡単に読み込めます。
 
 ---
 
-## `read_csv()` の重要な引数
-
-* `file`：パスとファイル名
-* `col_names = TRUE`：TRUEのとき, 1行目は列名として使う, FALSE のときは列名を自動的に作成する, 文字列ベクトルを渡せば読み込み中に列名を付けられます
-* `col_types = NULL`：列のデータ型を指定できるが NULL のときは関数に任せる
-* `comment = ""`：コメント記号を指定し, コメント記号後の文字を無視する
-* `skip = 0`             先頭から無視する行数
-
----
-
-## `read.csv()` と `read_csv()`との違い
-
-.pull-left[
-.small[
-`read.csv()`
-```{r, eval = FALSE}
-filename = "Assignment_06_Dataset01.csv"
-rabbits = read.csv(filename)
-class(rabbits)
-head(rabbits)
-```
-```{r, echo = FALSE}
-filename = rprojroot::find_rstudio_root_file("introduction/Assignment_06_Dataset01.csv")
-rabbits = read.csv(filename)
-class(rabbits)
-head(rabbits)
-```
-]
-
-* データのクラスは data.frame
-* ベースRのデータフレームは文字列や実数などが混ざっています
-]
-
-.pull-right[
-`read_csv()`
-.small[
-```{r,eval = FALSE}
-filename = "Assignment_06_Dataset01.csv"
-rabbits = read_csv(filename)
-class(rabbits)
-rabbits
-```
-```{r, echo = F}
-filename = rprojroot::find_rstudio_root_file("introduction/Assignment_06_Dataset01.csv")
-rabbits = read_csv(filename)
-class(rabbits)
-rabbits
-```
-]
-
-* データフレームを tidy化したもの
-* クラスに `tbl` や `tbl_df` などが追加されている
-* tibble の大きさや変数のtypeはすぐ確認できる
-]
-
----
-
-### `tibble` には list 列を入れられる
-
+## `tibble` には list 列を入れられる
 
 .pull-left[
 
@@ -699,9 +531,6 @@ tibble(a = 1:3, values = list(a1, a2, a3))
 ```
 
 ]
-
----
-
 
 ---
 
@@ -780,6 +609,52 @@ y = 1:8
 tibble(x, y)
 ```
 ]
+
+---
+
+## I/O 関係の関数
+
+**読み込み関数**
+
+* `read_delim()`：一般性の高い関数, 区切りの指定が必要
+* `read_csv()`：コンマ区切りフィアルの読み込み（csv ファイル）
+* `read_table()`：ホワイトスペース区切りファイルの読み込み（タブ・スペース区切りファイル）
+* `read_rds()`：R オブジェクトの読み込み
+
+**書き出し関数**
+
+* `write_delim()`：一般性の高い関数, 区切りの指定が必要
+* `write_csv()`：コンマ区切りフィアルの書き出し
+* `write_table()`：ホワイトスペース区切りファイルの書き出し（タブ・スペース区切りファイル）
+* `write_rds()`：R オブジェクトの書き出し
+* `ggsave()`: `ggplot2` でつくった図を書き出し
+
+---
+
+## `read_csv()` の重要な引数
+
+* `file`：パスとファイル名
+* `col_names = TRUE`：TRUEのとき, 1行目は列名として使う, FALSE のときは列名を自動的に作成する, 文字列ベクトルを渡せば読み込み中に列名を付けられます
+* `col_types = NULL`：列のデータ型を指定できるが NULL のときは関数に任せる
+* `comment = ""`：コメント記号を指定し, コメント記号後の文字を無視する
+* `skip = 0`             先頭から無視する行数
+* `locale`：ロケール（地域の設定）
+* `n_max = Inf`：読み込む行数、デフォルトは全ての行数
+
+---
+
+## `read_csv()`の使い方
+
+`read_csv()`
+```{r,eval = FALSE}
+rabbits = read_csv("Assignment_06_Dataset01.csv")
+rabbits
+```
+```{r, echo = F}
+filename = rprojroot::find_rstudio_root_file("introduction/Assignment_06_Dataset01.csv")
+rabbits = read_csv(filename)
+rabbits
+```
 
 ---
 
@@ -876,6 +751,722 @@ fname = "table2_output.rds"
 exceldata |> write_rds(file = fname)
 ```
 
+---
+
+class: middle, center, inverse
+name: dplyr
+
+# `dplyr` と `tidyr` によるデータ加工・操作
+
+---
+
+## 理想的なデータ構造
+
+
+.large[
+* 1 行 = 1 観測値
+* 1 列 = 1 変数
+]
+
+---
+
+## データ加工・操作用関数
+
+**データの結合 (mutating join)**
+
+`x`, `y`, `by` は関数の引数です。`by` で指定したキー（変数名）が一致するように行を合わせることができる。
+
+* `full_join(x, y, by)`：全ての `x` と `y` 行と列を結合する。
+* `inner_join(x, y, by)`：`x` と `y` で共通する行と列を結合する。
+* `left_join(x, y, by)`：左側（）第 1 引数のtibble に `y` の変数を追加する。
+* `right_join(x, y, by)`：右側（）第 2 引数のtibble に `x` の変数を追加する。
+
+
+**データの結合 (join)**
+
+* `bind_cols()`：渡したtibbleを横に結合する（行数が異なったらエラーが発生する）。
+* `bind_rows()`：渡した tibble を立てに結合する（一致する変数名を合わせてくれます）。
+
+---
+
+## mutating join のつかいかた
+
+.panelset[
+.panel[.panel-name[tibble]
+```{r}
+X = tibble(x = c("A", "B", "C", "G"), y = c(NA, rnorm(3, mean = 5)))
+Y = tibble(x = c("A", "C", "D", "E"), z = c(rpois(3, lambda = 5), NA))
+```
+.pull-left[
+```{r}
+X
+```
+]
+.pull-right[
+```{r}
+Y
+```
+]
+]
+.panel[.panel-name[full_join()]
+```{r}
+full_join(X,Y, by = "x")
+```
+]
+.panel[.panel-name[inner_join()]
+
+```{r}
+inner_join(X, Y, by = "x")
+```
+]
+.panel[.panel-name[left_join()]
+
+```{r}
+left_join(X, Y, by = "x")
+```
+]
+.panel[.panel-name[right_join()]
+
+```{r}
+right_join(X, Y, by = "x")
+```
+]
+.panel[.panel-name[bind_rows()]
+.pull-left[
+```{r}
+bind_rows(X, Y)
+```
+
+]
+.pull-right[
+```{r}
+bind_rows("X" = X, "Y" = Y, .id = "origin")
+```
+]
+]
+.panel[.panel-name[bind_cols()]
+```{r}
+bind_cols(X, Y)
+```
+]
+]
+
+---
+
+## 行と列の加工・操作用関数
+
+.pull-left[
+**列における操作**
+
+* `mutate()`：既存の変数の書き換えや変数の追加する
+* `select()`：既存の変数を選らぶ
+* `rename()`：既存の変数の名前を変える
+* `pull()`：既存の変数をリストとして抽出する
+* `relocate()``：指定した列の位置を変える
+]
+
+.pull-right[
+**行における操作**
+
+* `filter()`：条件を満たした行を返す
+* `distinct()`：指定した変数から重複している行を外す
+* `slice()`：指定した行インデックスを返す
+* `arrange()`：指定した列の昇順で行を並べ替える
+]
+
+---
+
+## 列の加工
+
+.panelset[
+.panel[.panel-name[mutate()]
+```{r}
+iris |> as_tibble() |> mutate(P2 = Petal.Length^2)
+```
+]
+.panel[.panel-name[select()]
+.pull-left[
+```{r}
+iris |> as_tibble() |> select(Species, Petal.Length)
+```
+]
+.pull-right[
+```{r}
+iris |> as_tibble() |> select(matches("Length"))
+```
+]
+]
+.panel[.panel-name[rename()]
+.pull-left[
+.small[
+```{r}
+iris |> as_tibble() |> rename(PL = Petal.Length)
+```
+]
+]
+.pull-right[
+.small[
+
+```{r}
+iris |> as_tibble() |> 
+  rename_with(~str_replace_all(.x, "[(a-z.)]", ""), .cols = matches("(Pet)|(Sep)"))
+```
+]
+]
+
+]
+.panel[.panel-name[pull()]
+.small[
+
+```{r}
+iris |> as_tibble() |> pull(Species)
+```
+]
+
+]
+.panel[.panel-name[relocate()]
+.pull-left[
+.small[
+
+```{r}
+iris |> as_tibble() |> relocate(Species, .before = "Sepal.Length")
+```
+]
+]
+
+.pull-right[
+.small[
+```{r}
+iris |> as_tibble() |> relocate(Species, matches("Length"), .before = "Sepal.Length")
+```
+]
+]
+
+]
+]
+
+---
+
+## 行の加工
+
+.panelset[
+.panel[.panel-name[filter()]
+.pull-left[
+.small[
+
+```{r}
+iris |> as_tibble() |> filter(str_detect(Species, "versicolor"))
+```
+]
+]
+.pull-right[
+
+.small[
+```{r}
+iris |> as_tibble() |> filter(Petal.Length > 6 & Sepal.Length > 7.5)
+```
+]]]
+.panel[.panel-name[distinct()]
+.pull-left[
+```{r}
+iris |> as_tibble() |> distinct(Species)
+```
+]
+.pull-right[
+.small[
+```{r}
+iris |> as_tibble() |> distinct(Petal.Length, .keep_all = T)
+```
+]]]
+.panel[.panel-name[slice()]
+.pull-left[
+.small[
+```{r}
+iris |> as_tibble() |> slice(1:5)
+iris |> as_tibble() |> slice_head(n = 2)
+iris |> as_tibble() |> slice_tail(n = 2)
+```
+]]
+.pull-right[
+.small[
+```{r}
+iris |> as_tibble() |> slice_min(Petal.Length)
+iris |> as_tibble() |> slice_max(Petal.Length)
+iris |> as_tibble() |> slice_sample(n = 3)
+```
+]]]
+.panel[.panel-name[arrange()]
+.pull-left[
+.small[
+```{r}
+iris |> as_tibble() |> arrange(Sepal.Length)
+```
+]]
+.pull-right[
+.small[
+```{r}
+iris |> as_tibble() |> 
+  arrange(desc(Sepal.Length), desc(Sepal.Width))
+```
+]]]
+]
+
+---
+
+## グループ化・ネストに関する関数
+
+* `group_by()`：`tibble` をグループ化する
+* `group_nest()`：グループ化した `tibble` をネスト（入れ子）する
+* `nest()`：渡した列をネストする
+* `unnest()`：ネストされている列を展開（アンネスト）する
+* `group_map()`：グループ化した `tibble` に関数を適応して、リストを返す
+* `group_modify()`：グループ化した `tibble` に関数を適応して、tibble を返す
+
+---
+
+## `tibble` のグループ化
+
+.panelset[
+.panel[.panel-name[group_by()]
+.pull-left[
+```{r}
+iris |> as_tibble() |> select(1:3)
+```
+]
+
+.pull-right[
+.small[
+
+```{r}
+iris |> as_tibble() |> group_by(Species) |> select(1:3)
+```
+]]]
+
+.panel[.panel-name[group_nest()]
+.small[
+```{r}
+iris |> as_tibble() |> group_nest(Species)
+```
+]]
+
+.panel[.panel-name[nest()]
+.small[
+```{r}
+iris |> as_tibble() |> nest(data = matches("Length|Width"))
+```
+]]
+
+.panel[.panel-name[unnest()]
+.small[
+```{r}
+iris |> as_tibble() |> group_nest(Species) |> unnest(data)
+```
+]]
+.panel[.panel-name[group_map()]
+.small[
+```{r}
+iris |> as_tibble() |> group_by(Species) |> group_map(~head(.x, n = 2))
+```
+]]
+.panel[.panel-name[group_modify()]
+.small[
+```{r}
+iris |> as_tibble() |> group_by(Species) |> group_modify(~head(.x, n = 2))
+```
+]]
+]
+
+---
+
+## その他の関数
+
+.pull-left[
+* `drop_na()`：`NA`（欠損値）を含む行を削除
+* `replace_na()`：`NA`を他の値と書き換える
+* `fill()`：`NA`を直前の値で埋める
+]
+.pull-right[
+* `separate()`：文字列の変数を任意の区切りで複数変数に分裂する
+* `unite()`：複数の変数を任意の区切りで 1 列にまとめる
+]
+
+
+.panelset[
+.panel[.panel-name[drop_na()]
+.pull-left[
+```{r}
+X
+```
+]
+.pull-right[
+```{r}
+X |> drop_na()
+```
+]
+]
+.panel[.panel-name[replace_na()]
+.pull-left[
+```{r}
+X |> replace_na(list(x = "Z", y = 0))
+```
+]
+.pull-right[
+```{r}
+X |> mutate(y = replace_na(y, 0))
+```
+
+]
+]
+.panel[.panel-name[fill()]
+```{r}
+Y |> fill(z)
+```
+]
+.panel[.panel-name[separate()]
+```{r}
+tibble(x = c(NA, "Iris.setosa", "Iris.virginica", "Iris.versicolor")) |> 
+  separate(x, into = c("Genus", "Species"))
+```
+]
+.panel[.panel-name[unite()]
+```{r}
+tibble(x = rep("Iris", 3), y = c("setosa", "virginica", "versicolor")) |> 
+  unite(Species, x, y, sep = "_")
+```
+]
+]
+
+---
+
+## ピボット・`tibble`を変形する関数
+
+* `pivot_longer()`：`tibble` を wide format （横広）から long format （縦長）に変える
+* `pivot_wider()`：`tibble` をlong format から wide format に変える
+
+-------------------
+
+### 重要な引数
+
+.pull-left[
+`pivot_longer()`
+
+* `cols`：動かす変数
+* `names_to`：動かした変数の名前の移動先
+* `values_to`：動かした変数の値の移動先
+* `names_transform`：移動先の変数のタイプを変換
+
+]
+.pull-right[
+`pivot_wider()`
+
+* `id_cols`：行（値）を区別するための列名
+* `names_from`：移動先の列名になる変数
+* `values_from`：移動したい値
+* `values_fill`：存在しない要素の埋め込み方法
+* `values_fn`：行の区別ができないときの処理（デフォルトはリスト）
+
+]
+
+
+---
+
+## `pivot_longer()` の使い方
+
+.panelset[
+.panel[.panel-name[pivot_longer() 1]
+.pull-left[
+.small[
+```{r}
+relig_income |> as_tibble()
+```
+]]
+
+.pull-right[
+.small[
+```{r}
+relig_income |> as_tibble() |> 
+pivot_longer(!religion, names_to = "income", values_to = "count")
+```
+]]]
+
+.panel[.panel-name[pivot_longer() 2]
+.pull-left[
+.small[
+```{r}
+billboard |> as_tibble()
+```
+]]
+.pull-right[
+.small[
+```{r}
+billboard |> as_tibble() |> 
+  pivot_longer(col = starts_with("wk"),
+               names_to = "week", names_prefix = "wk",
+               values_to = "rank", values_drop_na = TRUE)
+```
+]]]
+
+.panel[.panel-name[pivot_longer() 3]
+.pull-left[
+.small[
+```{r}
+who |> as_tibble()
+```
+]]
+.pull-right[
+.small[
+```{r}
+who %>% as_tibble() |>
+  pivot_longer(cols = new_sp_m014:newrel_f65,
+               names_to = c("diagnosis", "gender", "age"),
+               names_pattern = "new_?(.*)_(.)(.*)",
+               values_to = "count", values_drop_na = TRUE)
+
+```
+]]]
+
+.panel[.panel-name[pivot_longer() 4]
+.pull-left[
+.small[
+```{r}
+anscombe |> as_tibble()
+```
+]]
+.pull-right[
+.small[
+```{r}
+anscombe %>% as_tibble() |> 
+ pivot_longer(everything(), names_to = c(".value", "set"), names_pattern = "(.)(.)"
+ )
+```
+]]]
+]
+
+
+---
+
+## `pivot_wider()` の使い方
+
+.panelset[
+.panel[.panel-name[pivot_longer() 1]
+.pull-left[
+.small[
+```{r}
+fish_encounters
+```
+]]
+
+.pull-right[
+.small[
+```{r}
+fish_encounters |> as_tibble() |> 
+  pivot_wider(names_from = station, values_from = seen)
+```
+]]]
+
+.panel[.panel-name[pivot_longer() 2]
+.pull-left[
+.small[
+```{r}
+fish_encounters
+```
+]]
+
+.pull-right[
+.small[
+```{r}
+# 存在しない組み合わせの要素を埋める
+fish_encounters |>  as_tibble() |> 
+  pivot_wider(names_from = station, values_from = seen, values_fill = 0)
+
+```
+]]]
+
+.panel[.panel-name[pivot_longer() 3]
+.pull-left[
+.small[
+```{r}
+us_rent_income |> as_tibble()
+```
+]]
+.pull-right[
+.small[
+```{r}
+us_rent_income |> as_tibble() |> 
+  pivot_wider(names_from = variable, values_from = c(estimate, moe))
+
+# us_rent_income  |> as_tibble() |> 
+#   pivot_wider(names_from = variable,
+#               names_sep = ".",
+#               values_from = c(estimate, moe))
+
+# us_rent_income  |> as_tibble() |> 
+#   pivot_wider(names_from = variable,
+#               names_glue = "{variable}_{.value}",
+#               values_from = c(estimate, moe))
+```
+]]]
+
+.panel[.panel-name[pivot_longer() 4]
+.pull-left[
+.small[
+```{r}
+warpbreaks |> as_tibble()
+```
+]]
+.pull-right[
+.small[
+```{r}
+warpbreaks |> as_tibble() |> 
+  pivot_wider(names_from = wool,
+              values_from = breaks)
+
+```
+]]]
+
+.panel[.panel-name[pivot_longer() 5]
+.pull-left[
+.small[
+```{r}
+warpbreaks |> as_tibble()
+```
+]]
+
+.pull-right[
+.small[
+```{r}
+warpbreaks |> as_tibble() |> 
+  pivot_wider(names_from = wool,
+              values_from = breaks,
+              values_fn = mean)
+
+```
+]]]
+]
+
+
+---
+
+## 不都合なデータ構造
+
+```{r, include = F, cache=TRUE}
+# 光合成曲線疑似データ
+set.seed(2021)
+f1 = \(x, p) {p[1] * (1-exp(-p[2] / p[1] * x)) - p[3]} 
+p = 32*c(80, 5, 30)
+z = tibble(light = c(seq(0, 45, by  = 5), seq(50, 100, by = 25))) |> 
+  mutate(yhat = f1(light, p))
+
+z = tibble(min = seq(0, 30, by = 5), data = list(z)) |> 
+  unnest(data) |> 
+  mutate(umol = min * yhat/10000 + 10) 
+
+z = tibble(sample = 1:10, data = list(z)) |> 
+  mutate(data = map(data, \(x) {
+    x |> 
+      mutate(umol = rnorm(n(), umol, sd = 0.1))
+  })) |> 
+  unnest(data) |> 
+  select(-yhat) |> 
+  pivot_wider(id_cols = c(sample, min),
+              names_from = light,
+              values_from = umol)
+z |> arrange(min, z) |> 
+  filter(sample <6) |> 
+  select(sample, min, matches("((5[0-9])|(7[0-9])|(10[0-9]))")) |> 
+  write_csv("photosynthesis1_high.csv")
+  
+z |> arrange(min, z) |> 
+  filter(sample <6) |> 
+  select(!matches("((5[0-9])|(7[0-9])|(10[0-9]))")) |> 
+  write_csv("photosynthesis1_low.csv")
+
+z |> arrange(min, z) |> 
+  filter(sample > 5) |> 
+  select(sample, min, matches("((5[0-9])|(7[0-9])|(10[0-9]))")) |> 
+  write_csv("photosynthesis2_high.csv")
+  
+z |> arrange(min, z) |> 
+  filter(sample > 5) |> 
+  select(!matches("((5[0-9])|(7[0-9])|(10[0-9]))")) |> 
+  write_csv("photosynthesis2_low.csv")
+```
+```{r readphoto, include = F, cache=TRUE}
+fname = rprojroot::find_rstudio_root_file("photosynthesis1_low.csv")
+dset1_low = read_csv(fname)
+fname = rprojroot::find_rstudio_root_file("photosynthesis1_high.csv")
+dset1_high = read_csv(fname)
+fname = rprojroot::find_rstudio_root_file("photosynthesis2_low.csv")
+dset2_low = read_csv(fname)
+fname = rprojroot::find_rstudio_root_file("photosynthesis2_high.csv")
+dset2_high = read_csv(fname)
+```
+
+```{r, eval = FALSE}
+fname = "photosynthesis1_low.csv"
+dset1_low = read_csv(fname)
+```
+
+
+```{r}
+dset1_low
+```
+
+`sample` と `min` の列はサンプル番号と時間 (minutes) の変数です。
+それぞれに、サンプル番号と時間の値が入っています。
+`0` から `45` の列には溶存酸素濃度の値が入っています。
+この時の変数名は光条件ですね。
+
+---
+
+## ワイドからロングへ変換
+
+```{r}
+dset1_low |> 
+  pivot_longer(cols = matches("[0-9]+"),　names_to = "light",
+               names_transform  = list(light = as.numeric))
+```
+
+---
+
+## 残りのデータの読み込み
+
+
+```{r, eval = FALSE}
+dset1_high = read_csv("photosynthesis1_high.csv")
+dset2_low  = read_csv("photosynthesis2_low.csv")
+dset2_high = read_csv("photosynthesis2_high.csv")
+```
+
+---
+
+## ピボットしてから結合
+
+```{r}
+dset1_low  = dset1_low  |> pivot_longer(cols = matches("[0-9]+"), names_to = "light", names_transform = list(light = as.numeric))
+dset1_high = dset1_high |> pivot_longer(cols = matches("[0-9]+"), names_to = "light", names_transform = list(light = as.numeric))
+dset2_low  = dset2_low  |> pivot_longer(cols = matches("[0-9]+"), names_to = "light", names_transform = list(light = as.numeric))
+dset2_high = dset2_high |> pivot_longer(cols = matches("[0-9]+"), names_to = "light", names_transform = list(light = as.numeric))
+alldata = bind_rows(dset1_low, dset2_low, dset1_high, dset2_high)
+alldata
+```
+
+---
+
+## 結合してからピボット
+
+```{r, ref.label="readphoto", echo=F}
+```
+
+```{r}
+dset1 = full_join(dset1_low, dset1_high, by = c("sample", "min"))
+dset2 = full_join(dset2_low, dset2_high, by = c("sample", "min"))
+alldata = bind_rows(dset1, dset2)
+alldata = alldata |> 
+  pivot_longer(cols = matches("[0-9]+"), names_to = "light", 
+               names_transform = list(light = as.numeric))
+```
+
 
 ---
 class: middle, center, inverse
@@ -885,13 +1476,191 @@ name: ggplot
 
 ---
 
+## `ggplot2` について
+
+* `ggplot2` の関数は `+` でつなげる
+* `ggplot()` はベースレイヤー
+* `geom_*()` はプロットレイヤー
+* `scales_*()` でエステティク (aesthetics) を調整
+* `theme()` や `theme_()` で書式を調整
+* `facet_wrap()` や `facet_grid()` は多変量データのプロットのパネル分け
+---
+
+## Aesthetics （エステティク）とは
+
+.pull-left[
+### 色・透明度
+
+* `color`：点と線の色
+* `fill`：面の色
+* `alpha`：透明度（0 -- 1 の値）
+
+### 大きさ・形状
+
+* `size`：点と文字の大きさ、線の太さ
+* `shape`：点の形
+* `linetype`：線の種類
+
+]
+
+.pull-right[
+### グループ化
+
+* `group`：点や線のグループ化
+
+### 座標、始点・終点
+
+* `x`, `y`
+* `xmin`, `ymin`
+* `xend`, `yend`
+
+]
+
+---
+
+## geom の種類
+
+.pull-left[
+**散布図**
+
+* `geom_point()`
+* `geom_jitter()`
+
+**折れ線グラフ**
+
+* `geom_path()`
+* `geom_line()`
+* `geom_step()`
+
+**面グラフ**
+* `geom_ribbon()`
+* `geom_area()`
+* `geom_polygon()`
+
+]
+
+.pull-right[
+**ヒートマップ・コンター図**
+* `geom_tile()`
+* `geom_raster()`
+* `geom_rect()`
+* `geom_contour()`
+
+**エラーバー**
+* `geom_error()`
+* `geom_linerange()`
+* `geom_pointrange()`
+* `geom_crossbar()`
+]
+
+---
+
+## geom の種類
+
+.pull-left[
+**曲線など**
+
+* `geom_smooth()`
+* `geom_curve()`
+* `geom_segment()`
+* `geom_abline()`
+* `geom_hline()`
+* `geom_vline()`
+
+**文字列**
+
+* `geom_text()`
+* `geom_label()`
+
+]
+
+.pull-right[
+**ヒストグラム・密度曲線**
+* `geom_histogram()`
+* `geom_freqpoly()`
+* `geom_density()`
+* `geom_bin2d()`
+* `geom_hex()`
+* `geom_dotplot()`
+
+**棒グラフ・箱ひげ図**
+* `geom_bar()`
+* `geom_col()`
+* `geom_boxplot()`
+* `geom_violin()`
+]
+
+---
+
+## `ggplot2` の付属パッケージ
+
+**研究室が使っているパッケージ**
+
+* `ggpubr`: `theme_pubr()`, `ggarrange()`
+* `ggrepel`: `geom_text_repel()`
+* `lemon`: `facet_rep_grid()`, `facet_rep_wrap()`
+* `showtext`: システムフォントの埋め込み
+
+[ggplot2 extensions](https://exts.ggplot2.tidyverse.org/)
+
+---
+
+
+
+
 ## データを読み込んだら、可視化しよう
 
-```{r}
+```{r, echo = FALSE}
+# Need to make sure that show text is not enabled.
+if("showtext" %in% (.packages())){
+  showtext_auto(enable = FALSE)
+}
+theme_replace(text = element_text(family = "sans"))
+```
+
+```{r, fig.height=2}
 ggplot(exceldata) + geom_point(aes(x = month, y = temperature1))
 ```
 
 横軸の順序がおかしいですね。軸タイトルも変えたほうがいいですね。
+
+---
+
+## 軸タイトルの関数
+
+軸タイトルや図のタイトルは `labs()` 関数でします。
+
+.panelset[
+```{r, panelset = TRUE, fig.height=2}
+xlabel = "Month"
+ylabel = "'Temperature ('*degree*'C)'" # plotmath expression see ?plotmath
+ggplot(exceldata) + 
+  geom_point(aes(x = month, y = temperature1)) + 
+  labs(x = xlabel, 
+       y = parse(text = ylabel),
+       title = "Monthly mean water temperature") 
+```
+]
+
+---
+
+## 論文用に変える
+
+学術論文に記載する図の場合、図から余計なかざりを外します。
+研究室では `ggpubr` の `theme_pubr()` 関数を使っています。
+
+.panelset[
+```{r, panelset = TRUE, fig.height=2}
+library(ggpubr)
+xlabel = "Month"
+ylabel = "'Temperature ('*degree*'C)'" # plotmath expression see ?plotmath
+ggplot(exceldata) + 
+  geom_point(aes(x = month, y = temperature1)) + 
+  labs(x = parse(text = xlabel), 
+       y = parse(text = ylabel))  +
+  theme_pubr(base_size = 10)
+```
+]
 
 ---
 
@@ -917,57 +1686,19 @@ theme_replace(text = element_text(family = "notosans"))
 
 ---
 
-## 軸タイトルの関数
-
-軸タイトルや図のタイトルは `labs()` 関数でします。
-
-.panelset[
-```{r, panelset = TRUE}
-xlabel = "Month"
-ylabel = "'Temperature'~(degree*C)" # plotmath expression see ?plotmath
-ggplot(exceldata) + 
-  geom_point(aes(x = month, y = temperature1)) + 
-  labs(x = xlabel, 
-       y = parse(text = ylabel),
-       title = "Monthly mean water temperature") 
-```
-]
-
----
-
-## 論文用に変える
-
-学術論文に記載する図の場合、図から余計なかざりを外します。
-研究室では `ggpubr` の `theme_pubr()` 関数を使っています。
-
-.panelset[
-```{r, panelset = TRUE}
-library(ggpubr)
-xlabel = "Month"
-ylabel = "'Temperature'~(degree*C)" # plotmath expression see ?plotmath
-ggplot(exceldata) + 
-  geom_point(aes(x = month, y = temperature1)) + 
-  labs(x = parse(text = xlabel), 
-       y = parse(text = ylabel))  +
-  theme_pubr(base_family = "notosans", base_size = 10)
-```
-]
-
----
-
 ## 月の順序をなおす
 
 もう気づいたと思いますが、横軸の月の順序が間違っています。
 `factor()` で、`month` 変数を整えます。
 
 .panelset[
-```{r, panelset = TRUE}
+```{r, panelset = TRUE, fig.height=2}
 # element_text() size is in points (pt)
 # 1 pt = 0.35 mm
 
 library(ggpubr)
 xlabel = "Month"
-ylabel = "'Temperature'~(degree*C)" # plotmath expression see ?plotmath
+ylabel = "'Temperature ('*degree*'C)'" # plotmath expression see ?plotmath
 
 levels = month.abb
 levels = str_c(levels, ifelse(levels == "May", "", "."))
@@ -1045,7 +1776,7 @@ image_append(c(i1, img3, i2)) |>
 
 
 * `wh = list(width = 80, height = 80)` は同じだが、図は似ていません。
-* モニターでみたとき、PDF の解像度は 96 です。つまり、`dpi = 300` のPNGファイルはPDFの約３倍の広さです。
+* モニターでみたとき、PDF の解像度は 96 です。つまり、`dpi = 300` のPNGファイルはPDFの約 3 倍の大きさです。
 
 ---
 
@@ -1140,7 +1871,7 @@ labels = str_sub(month.abb, 1, 1)
 # 図の結果は plot1 にいれます。
 plot1 =   exceldata |> mutate(month = factor(month, levels = levels)) |> 
   ggplot() + 
-  geom_pointline(aes(x = month, y = temperature1, group = 1)) +
+  geom_point(aes(x = month, y = temperature1)) +
   scale_x_discrete(name = xlabel, labels = labels) +
   scale_y_continuous(name = parse(text = ylabel), breaks = seq(21, 29, by = 1)) +
   theme_pubr(base_family = "notosans") +
@@ -1239,7 +1970,7 @@ exceldata |> mutate(month = factor(month, levels = levels)) |>
 ]
 .pull-right[
 
-```{r, fig.width = 3, fig.height = 3, echo = FALSE}
+```{r, fig.width = 3, fig.height = 2.5, echo = FALSE}
 library(viridis)
 xlabel = "Month"
 ylabel = "'Temperature'~(degree*C)" # plotmath expression see ?plotmath
@@ -1261,4 +1992,384 @@ exceldata |> mutate(month = factor(month, levels = levels)) |>
         legend.background = element_blank(),
         legend.title = element_blank())
 ```
+]
+
+---
+
+## 複数パネルのプロット
+
+.panelset[
+```{r, panelset = TRUE, fig.width=6, fig.height=2.0}
+xlabel = "Petal width (cm)"
+ylabel = "Sepal width (cm)"
+iris |> group_nest(Species) |> 
+  mutate(L = c("A", "B", "C")) |> 
+  mutate(Species = sprintf("italic('I.')~italic('%s')~'(%s)'",  Species, L)) |> 
+  unnest(data) |> 
+  ggplot() + 
+  geom_point(aes(x = Petal.Width, y = Sepal.Width, color = Species)) +
+  geom_text(aes(x = 3, y = 5, label = Species), parse = TRUE, vjust = 1, hjust = 1,
+            family = "notosans", size =3,  check_overlap = TRUE) +
+  scale_x_continuous(name = xlabel, breaks = seq(0, 3), limits = c(0, 3)) +
+  scale_y_continuous(name = ylabel, breaks = seq(0, 5), limits = c(0, 5)) +
+  scale_color_viridis("", option = "turbo", discrete = TRUE, 
+                      begin = 0, end = 0.5, labels = scales::parse_format()) +
+  guides(color = "none") +
+  facet_rep_grid(cols = vars(Species)) +
+  theme_pubr(base_family = "notosans") +
+  theme(text = element_text(size = 10),
+        strip.background = element_blank(),
+        strip.text = element_blank())
+```
+]
+
+---
+
+## 複数プロットの結合
+
+.panelset[
+.panel[.panel-name[Code]
+```{r}
+xlabel1 = "Petal width (cm)"
+ylabel1 = "Sepal width (cm)"
+xlabel2 = "Petal length (cm)"
+ylabel2 = "Sepal length (cm)"
+
+iris2 = iris |> 
+    mutate(Species = sprintf("italic('I.')~italic('%s')",  Species))
+```
+]
+
+.panel[.panel-name[Code Plot 1]
+```{r}
+plot1 = 
+  ggplot(iris2) + 
+  geom_point(aes(x = Petal.Width, y = Sepal.Width, color = Species)) +
+  scale_x_continuous(name = xlabel1, breaks = seq(0, 8), limits = c(0, 8)) +
+  scale_y_continuous(name = ylabel1, breaks = seq(0, 8), limits = c(0, 8)) +
+  scale_color_viridis("", option = "turbo", discrete = TRUE, 
+                      begin = 0, end = 0.5, labels = scales::parse_format()) +
+  theme_pubr(base_family = "notosans") +
+  theme(text = element_text(size = 10))
+```
+]
+
+.panel[.panel-name[Code Plot 2]
+```{r}
+plot2 = 
+  ggplot(iris2) + 
+  geom_point(aes(x = Petal.Length, y = Sepal.Length, color = Species)) +
+  scale_x_continuous(name = xlabel2, breaks = seq(0, 8), limits = c(0, 8)) +
+  scale_y_continuous(name = ylabel2, breaks = seq(0, 8), limits = c(0, 8)) +
+  scale_color_viridis("", option = "turbo", discrete = TRUE, 
+                      begin = 0, end = 0.5, labels = scales::parse_format()) +
+  theme_pubr(base_family = "notosans") +
+  theme(text = element_text(size = 10))
+```
+
+]
+]
+
+---
+
+## 複数プロットの結合の結果
+
+```{r, fig.height=2.25}
+ggarrange(plot1, plot2, 
+          ncol = 2, nrow = 1,
+          common.legend = TRUE, align = "hv")
+```
+
+---
+
+## 線と点（説明変数は離散型変数の場合）
+
+.panelset[
+```{r, panelset = TRUE, fig.width=6, fig.height=2.25}
+ylabel = "Petal length (cm)"
+iris2 |> group_by(Species) |> 
+  summarise(PL = mean(Petal.Length),
+            sd = sd(Petal.Length)) |> 
+  mutate(lower = PL - sd,
+         upper = PL + sd) |> 
+ggplot() + 
+  geom_line(aes(x = Species, y = PL, group = 1)) +
+  geom_point(aes(x = Species, y = PL), size = 2, color = "white") +
+  geom_point(aes(x = Species, y = PL), size = 1) +
+  geom_errorbar(aes(x = Species, ymin = lower, ymax = upper),
+                width = 0.0) +  
+  scale_x_discrete(name = "Species", labels = scales::parse_format()) +
+  scale_y_continuous(name = ylabel, breaks = seq(0, 8), limits = c(0, 8)) +
+  theme_pubr(base_family = "notosans") +
+  theme(text = element_text(size = 10))
+```
+]
+
+---
+
+## ボーグラフ
+
+.panelset[
+```{r, panelset = TRUE, fig.width=6, fig.height=2.25}
+ylabel = "Petal length (cm)"
+iris2 |> group_by(Species) |> 
+  summarise(PL = mean(Petal.Length),
+            sd = sd(Petal.Length)) |> 
+  mutate(lower = PL - sd,
+         upper = PL + sd) |> 
+ggplot() + 
+  geom_col(aes(x = Species, y = PL, fill = Species)) +
+  geom_errorbar(aes(x = Species, ymin = lower, ymax = upper),
+                width = 0.01) +  
+  scale_x_discrete(name = "Species", labels = scales::parse_format()) +
+  scale_y_continuous(name = ylabel, breaks = seq(0, 8), limits = c(0, 8)) +
+  scale_fill_viridis("", option = "turbo", discrete = TRUE, 
+                      begin = 0, end = 0.5, labels = scales::parse_format()) +
+  guides(fill = "none") +
+  theme_pubr(base_family = "notosans") +
+  theme(text = element_text(size = 10))
+```
+]
+
+---
+
+## ボーグラフ（横向き・並び替える）
+
+.panelset[
+```{r, panelset = TRUE, fig.width=6, fig.height=2.25}
+ylabel = "Petal length (cm)"
+iris2 |> group_by(Species) |> 
+  summarise(PL = mean(Petal.Length),
+            sd = sd(Petal.Length)) |> 
+  mutate(lower = PL - sd,
+         upper = PL + sd) |> 
+  ggplot(aes(x = fct_reorder(Species, PL, .desc = T))) + 
+  geom_col(aes(y = PL, fill = Species)) +
+  geom_errorbar(aes(ymin = lower, ymax = upper),
+                width = 0.1) +  
+  scale_x_discrete(name = "Species", labels = scales::parse_format()) +
+  scale_y_continuous(name = ylabel, breaks = seq(0, 8), limits = c(0, 8)) +
+  scale_fill_viridis("", option = "turbo", discrete = TRUE, 
+                      begin = 0, end = 0.5, labels = scales::parse_format()) +
+  guides(fill = "none") +
+  theme_pubr(base_family = "notosans") +
+  theme(text = element_text(size = 10))+ 
+  coord_flip()
+```
+]
+
+
+---
+
+## ヒストグラム
+
+.panelset[
+```{r, panelset = TRUE, fig.width=6, fig.height=2.25}
+xlabel = "Petal length (cm)"
+ylabel = "Frequency"
+iris2 |> 
+  ggplot() + 
+  geom_histogram(aes(x = Petal.Length, fill = Species)) +
+  scale_x_continuous(name = xlabel) +
+  scale_y_continuous(name = ylabel) +
+  scale_fill_viridis("", option = "turbo", discrete = TRUE, 
+                      begin = 0, end = 0.5, labels = scales::parse_format()) +
+  theme_pubr(base_family = "notosans") +
+  theme(text = element_text(size = 10),
+        legend.position = c(1,1),
+        legend.justification = c(1,1))
+```
+]
+
+
+---
+
+## ヒストグラム・パネル
+
+.panelset[
+```{r, panelset = TRUE, fig.width=6, fig.height=2.25}
+xlabel = "Petal length (cm)"
+ylabel = "Frequency"
+iris2 |> 
+  ggplot() + 
+  geom_histogram(aes(x = Petal.Length, fill = Species),
+                 binwidth = 0.1, center = 0) +
+  scale_x_continuous(name = xlabel, limits = c(0, 10)) +
+  scale_y_continuous(name = ylabel) +
+  scale_fill_viridis("", option = "turbo", discrete = TRUE, 
+                      begin = 0, end = 0.5, labels = scales::parse_format()) +
+  facet_rep_wrap(facets = vars(Species)) +
+  theme_pubr(base_family = "notosans") +
+  theme(text = element_text(size = 10),
+        legend.position = c(1,1),
+        legend.justification = c(1,1),
+        strip.background = element_blank(),
+        strip.text = element_blank())
+```
+]
+
+---
+
+## 時系列
+
+データは (https://covid.ourworldindata.org/data/owid-covid-data.csv)。
+
+.panelset[
+.panel[.panel-name[Code 1]
+```{r, echo = T, cache=TRUE}
+covid = read_csv("https://covid.ourworldindata.org/data/owid-covid-data.csv")
+covid2 = covid |> 
+  group_by(continent, date) |> 
+  summarise(tc = sum(total_cases_per_million, na.rm=T),
+            td = sum(total_deaths_per_million, na.rm= T)) |> 
+  drop_na()
+```
+]
+
+.panel[.panel-name[Code 2]
+```{r, fig.width=6, fig.height=2.0, eval = FALSE}
+xlabel = "Date"
+ylabel = "COVID cases per million"
+ggplot(covid2) +
+  geom_path(aes(x=date, y = tc, color = continent))+
+  scale_x_date(name = xlabel) +
+  scale_y_continuous(name = ylabel) +
+  scale_color_viridis("", option = "turbo", discrete = TRUE, begin = 0, end = 0.8) +
+  theme_pubr(base_family = "notosans") +
+  theme(text = element_text(size = 10),
+        legend.position = c(0,1),
+        legend.justification = c(0,1),
+        strip.background = element_blank(),
+        strip.text = element_blank())
+```
+]
+
+.panel[.panel-name[Output]
+```{r, fig.width=6, fig.height=2.0, echo = FALSE}
+xlabel = "Date"
+ylabel = "COVID cases per million"
+ggplot(covid2) +
+  geom_path(aes(x=date, y = tc, color = continent))+
+  scale_x_date(name = xlabel) +
+  scale_y_continuous(name = ylabel) +
+  scale_color_viridis("", option = "turbo", discrete = TRUE, begin = 0, end = 0.8) +
+  theme_pubr(base_family = "notosans") +
+  theme(text = element_text(size = 10),
+        legend.position = c(0,1),
+        legend.justification = c(0,1),
+        strip.background = element_blank(),
+        strip.text = element_blank())
+```
+]
+]
+
+---
+
+## 時系列
+
+.panelset[
+```{r, panelset = TRUE, fig.width=6, fig.height=2.25}
+xlabel = "Date"
+ylabel = "COVID cases per million"
+ggplot(covid2) +
+  geom_path(aes(x=date, y = tc, color = continent))+
+  scale_x_date(name = xlabel, date_labels = "%Y-%m-%d") +
+  scale_y_continuous(name = ylabel, 
+                     breaks = 10^seq(-2,7), limits = c(0.01, 10^7),
+                     trans = "log10", labels = scales::label_math(format = log10)) +
+  scale_color_viridis("", option = "turbo", discrete = TRUE, begin = 0, end = 0.8) +
+  guides(color = guide_legend(ncol = 2)) +
+  theme_pubr(base_family = "notosans") +
+  theme(text = element_text(size = 10),
+        legend.position = c(0.5,0),
+        legend.justification = c(0,0),
+        legend.background = element_blank(),
+        strip.background = element_blank(),
+        strip.text = element_blank())
+```
+]
+
+---
+
+## 時系列軸のカスタムラベル
+
+```{r}
+gnn_date = function() {
+  function(x) {
+    m = format(x, "%b")
+    m = str_sub(m, start = 1, end = 1)
+    y = format(x, "%Y")
+    ifelse(duplicated(y), m, sprintf("%s\n%s", m,y))
+  }
+}
+```
+
+---
+
+## 時系列
+
+.panelset[
+```{r, panelset = TRUE, fig.width=6, fig.height=2.25}
+xlabel = "Date"
+ylabel = "COVID cases per million"
+ggplot(covid2) +
+  geom_path(aes(x=date, y = tc, color = continent))+
+  scale_x_date(name = xlabel, date_breaks = "months", labels = gnn_date()) +
+  scale_y_continuous(name = ylabel, 
+                     breaks = 10^seq(-2,7, by = 2), limits = c(0.01, 10^7),
+                     trans = "log10", labels = scales::label_math(format = log10)) +
+  scale_color_viridis("", option = "turbo", discrete = TRUE, begin = 0, end = 0.8) +
+  guides(color = guide_legend(ncol = 2)) +
+  theme_pubr(base_family = "notosans") +
+  theme(text = element_text(size = 10),
+        legend.position = c(0.5,0),
+        legend.justification = c(0,0),
+        legend.background = element_blank(),
+        strip.background = element_blank(),
+        strip.text = element_blank())
+```
+]
+
+---
+
+## 箱ひげ図
+
+.panelset[
+
+.panel[.panel-name[Code 1]
+```{r}
+covid2 = covid |> 
+  filter(date >= lubridate::ymd("2021-01-01")) |> 
+  filter(str_detect(location, "Indonesia|Japan|South Korea|Taiwan|China"))
+```
+]
+
+.panel[.panel-name[Code 2]
+```{r boxplot-covid, fig.height=2.25, eval=FALSE}
+xlabel = "Country"
+ylabel = "Daily cases per million"
+ggplot(covid2) +
+  geom_boxplot(aes(x = fct_reorder(location, new_cases_per_million, mean, na.rm=T, .desc=T), 
+                   y = new_cases_per_million, fill = location)) + 
+  scale_x_discrete(name = xlabel) +
+  scale_y_continuous(name = ylabel, 
+                     breaks = 10^seq(-3,3, by = 1), limits = 10^c(-3, 3),
+                     trans = "log10", labels = scales::label_math(format = log10)) +
+  scale_color_viridis("", option = "turbo", discrete = TRUE, begin = 0, end = 0.8) +
+  guides(fill = guide_legend(ncol = 2)) +
+  theme_pubr(base_family = "notosans") +
+  theme(text = element_text(size = 10),
+        legend.position = c(0,0),
+        legend.justification = c(0,0),
+        legend.background = element_blank(),
+        legend.title = element_blank(),
+        strip.background = element_blank(),
+        strip.text = element_blank())
+```
+]
+.panel[.panel-name[Output]
+```{r, ref.label="boxplot-covid", fig.height=2.25, echo=FALSE}
+
+```
+]
 ]
