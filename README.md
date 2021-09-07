@@ -1,13 +1,14 @@
 # labRnotes
+
 研究室のRコード集
 
 ## Table of contents
 
 **公開臨海実習**
 
-* [Rの紹介](https://gnishihara.github.io/labRnotes/introduction/introduction.html) 未完成 (2021-09-03) **スライドデッキ**
-
-* 実習に必要なパッケージ：`tidyverse`, `lubridate`, `showtext`, `ggpubr`, `lemon`
+* [Rの紹介](https://gnishihara.github.io/labRnotes/introduction/introduction.html) 随時更新 (2021-09-03) **スライドデッキ**
+* [演習のコード集](https://github.com/gnishihara/2021Kyoten)
+* 実習に必要なパッケージ：`tidyverse`, `lubridate`, `showtext`, `ggpubr`, `lemon`, `nlstools`, `statmod`
 * あると便利なパッケージ：`magick`, `scales`
 
 
