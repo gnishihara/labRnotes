@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Comparing the dissimilarity of communites</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Greg Nishihara" />
+    <script src="compare_communities_files/header-attrs/header-attrs.js"></script>
+    <link href="compare_communities_files/tile-view/tile-view.css" rel="stylesheet" />
+    <script src="compare_communities_files/tile-view/tile-view.js"></script>
+    <link href="compare_communities_files/animate.css/animate.xaringan.css" rel="stylesheet" />
+    <link href="compare_communities_files/tachyons/tachyons.min.css" rel="stylesheet" />
+    <link href="compare_communities_files/panelset/panelset.css" rel="stylesheet" />
+    <script src="compare_communities_files/panelset/panelset.js"></script>
+    <link href="compare_communities_files/xaringanExtra-extra-styles/xaringanExtra-extra-styles.css" rel="stylesheet" />
+    <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# Comparing the dissimilarity of communites
+## 2021 Tanimae Analysis
+### Greg Nishihara
+### Aquatic Plant Ecology Lab, Nagasaki University
+### Compiled on: 2021-10-05
+
+---
+
+
+
+
+
+
+
+
+## Multivariate analysis
+
+**Multivariate analysis: 多変量解析**
+
+* 生態学における多変量解析の目的
+  - 群集データ・環境勾配の要約をする
+  - 群集データと環境勾配の関係を明らかにする
+
+* 2 種類の解析手法
+  - 群分析 (Clustering)：群集分類に使う、なんかしらの規則に合わせて区分する
+  - 序列化 (Ordination)：環境勾配に対応した群集配置を求める
+
+---
+
+## Ordination: R-analysis and Q-analysis
+
+.pull-left[
+
+&lt;img src="compare_communities_files/figure-html/unnamed-chunk-1-1.png" width="100%" /&gt;
+
+]
+.pull-right[
+&lt;img src="compare_communities_files/figure-html/unnamed-chunk-2-1.png" width="100%" /&gt;
+
+]
+
+**有川港の群集データ解析には、Q分析を使います。**
+
+---
+
+## Unconstrained ordination
+
+**制約なしの序列化解析手法**
+
+* 事前に仮設をたてる必要はない。
+* 他変量の予約につかう。
+
+* Principal Component Analysis (PCA) **主成分分析**
+* Correspondence Analysis (CA) **対応分析**
+* Detrended Correspondence analysis (DCA) **傾向化除法対応分析**
+* Principal Coordinate Analysis (PCoA)
+* Non-metric Multi-Dimensional Scaling (NMDS)　**非計量多次元尺度構成法**
+
+---
+
+## Constrained ordination
+
+**制約ありの序列化解析手法**
+
+Requires a hypotheses, can associate a matrix of observations with predictors.
+* Redundancy Analysis (RDA, linear) **冗長性分析**
+* Canonical Correspondance Analysis (CCA, unimodal)  **正準対応分析**
+* Canonical Correlation Analysis (CCorA or COR)
+* Canonical Discriminant Analysis (CDA)
+* Canonical Analysis of Principal Coordinates (CAP)
+
+---
+class: center, middle
+
+# Unconstrained ordination
+
+---
+
+## Principal Components Analysis (1)
+
+データ処理コード：水温は一日あたりの平均の分散を計算した後にそれぞれの月平均を求めた。
+
+
+```r
+fnames = dir("~/Lab_Data/tanimaes/seaweed_data/rds_write_out", full=T)
+plaster = str_subset(fnames, "plaster_") |&gt; read_rds()
+sediment = str_subset(fnames, "sediment_") |&gt; read_rds()
+temperature = str_subset(fnames, "temp_") |&gt; read_rds()
+temperature = temperature |&gt; 
+  mutate(datetime = floor_date(datetime, "day")) |&gt; 
+  group_by(datetime, station) |&gt; 
+  summarise(across(temp, list(mean = mean, var = var))) |&gt; 
+  mutate(datetime = floor_date(datetime, "month")) |&gt; 
+  group_by(station, datetime) |&gt; 
+  summarise(across(c(temp_mean, temp_var), mean)) |&gt; 
+  mutate(year = year(datetime), month = month(datetime))
+tanimae_envdata = full_join(plaster, sediment, by = c("station", "year", "month"))  |&gt; 
+  full_join(temperature, by = c("station", "year", "month")) |&gt; 
+  select(!matches("^expID|^datetime"))
+```
+
+
+---
+
+## Principal Components Analysis (2)
+
+PCAの場合、Q分析用の行列を準備します。
+
+
+```r
+Y = tanimae_envdata |&gt; select(c("year", "month", "station"))
+X = tanimae_envdata |&gt; select(!c("year", "month", "station")) |&gt; drop_na()
+```
+
+.pull-left[
+
+```r
+X
+```
+
+```
+## # A tibble: 7 × 5
+##   pla_100g_day s1_day s2_day temp_mean temp_var
+##          &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt;     &lt;dbl&gt;    &lt;dbl&gt;
+## 1         7.16 0.0493 0.0395      25.3   0.297 
+## 2        13.0  0.0888 0.0690      25.2   0.259 
+## 3        16.2  0.0592 0.0395      24.6   0.0817
+## 4        11.5  0.0789 0.0592      25.3   0.234 
+## 5        18.9  0.118  0.108       25.2   0.200 
+## 6        19.0  0.138  0.118       25.0   0.146 
+## 7        15.4  0.0493 0.0296      24.8   0.117
+```
+]
+
+.pull-right[
+`vegan::rda()` をつかって、PCA解析をします。
+その前に、環境データを同じスケールにしたほうがいいので、`scale = TRUE` を渡します。
+
+
+```r
+r1 = X |&gt; rda(scale = TRUE)
+```
+]
+
+
+---
+
+## Principal Components Analysis (3)
+
+.panelset[
+.panel[.panel-name[Code]
+.small[
+
+
+```r
+# ggvegan::fortify() を使えば rda() の結果から必要な情報を抽出できます。
+r1d_s1 = fortify(r1, axes = 1:2, scaling = 1)
+r1d_s2 = fortify(r1, axes = 1:2, scaling = 2)
+calculate_equilibrium = function(X) {
+  # vegan scales output with a constant.
+  p = length(X$CA$eig)
+  tot = sum(X$CA$eig)
+  n = nrow(X$CA$u)
+  sqrt(2 / p) * ((n-1)*tot)^0.25
+}
+
+r0 = calculate_equilibrium(r1)
+p1 = ggplot() +
+  ggforce::geom_circle(aes(x0 = 0, y0 = 0, r = r0), color = "grey50") +
+  geom_point(aes(x = PC1, y = PC2), data = filter(r1d_s1, str_detect(Score, "sites"))) +
+  geom_segment(aes(x = 0, y = 0, xend = PC1, yend = PC2), data = filter(r1d_s1, str_detect(Score, "species")),
+               arrow = arrow(15, unit(3, "mm"))) +
+  geom_text(aes(x = 1.1*PC1,  y = 1.1*PC2, label = Label), data = filter(r1d_s1, str_detect(Score, "species")))  +
+  coord_equal() + 
+  labs(title = "Distance biplot (scaling = 1)")
+p2 = ggplot() +
+  geom_point(aes(x = PC1, y = PC2),data = filter(r1d_s2, str_detect(Score, "sites"))) +
+  geom_segment(aes(x = 0, y = 0,　xend = PC1, yend = PC2), data = filter(r1d_s2, str_detect(Score, "species")),
+               arrow = arrow(15, unit(3, "mm"))) +
+  geom_text(aes(x = 1.1*PC1, 　y = 1.1*PC2, label = Label), data = filter(r1d_s2, str_detect(Score, "species")))  +
+  coord_equal()+ 
+  labs(title = "Correlation biplot (scaling = 2)")
+p1 + p2
+```
+]
+]
+
+.panel[.panel-name[Plot]
+&lt;img src="compare_communities_files/figure-html/unnamed-chunk-6-1.png" width="100%" /&gt;
+]
+.panel[.panel-name[Comment]
+
+* **Distance biplot**
+
+  - 固有ベクトルは単位長（長さ１）に正規化している。
+  - 各点は多次元空間におけるおおよその位置を示す。
+  - 固有ベクトル間の角度に意味はない。
+  - 円は Circle of equilibrium contribution と呼びます。円の外まで伸びる矢印は主成分に強く貢献している。
+
+* **Correlation biplot**
+  - 固有ベクトルは固有値の平方根に正規化している。
+  - 各点の位置は多次元空間における位置を示さない。
+  - 固有ベクトル間の角度はベクトルどうしの相関を示す。
+  
+* 相関の値は `cor(X)` で示す。
+
+]
+]
+
+
+
+---
+
+## Principal Components Analysis (4)
+
+`vegan::rda()` をつかって、PCA解析をします。
+その前に、環境データを同じスケールにしたほうがいいので、`scale()` で標準化をします。
+
+.panelset[
+.panel[.panel-name[Code]
+
+Site と Species のスコア (score) を非表示にしました (`axes = FALSE`)。
+
+.small[
+
+```r
+summary(r1, axes = FALSE)
+```
+
+```
+## 
+## Call:
+## rda(X = X, scale = TRUE) 
+## 
+## Partitioning of correlations:
+##               Inertia Proportion
+## Total               5          1
+## Unconstrained       5          1
+## 
+## Eigenvalues, and their contribution to the correlations 
+## 
+## Importance of components:
+##                          PC1    PC2     PC3      PC4      PC5
+## Eigenvalue            2.7058 2.1793 0.07074 0.037890 0.006218
+## Proportion Explained  0.5412 0.4359 0.01415 0.007578 0.001244
+## Cumulative Proportion 0.5412 0.9770 0.99118 0.998756 1.000000
+## 
+## Scaling 2 for species and site scores
+## * Species are scaled proportional to eigenvalues
+## * Sites are unscaled: weighted dispersion equal on all dimensions
+## * General scaling constant of scores:
+```
+]
+]
+.panel[.panel-name[Comments]
+
+* Interia: データにおける分散を示す。このPCAは correlation 行列から求めたので、値は変数の数です。
+* Constrained / Unconstrained: PCAは制約なしの序列化解析なので、Unconstrained です。
+* Eigenvalue: 固有値は主成分の分散・重要度を示す。
+* Proportion Explained: 主成分ごとの固有値と固有値の和の比率。データの分散に対して、主成分が説明する割合。
+* Cumulative Proportion: 割合の累積
+
+このPCAの場合、主成分１と２だけで 97% 以上の分散を説明している。
+]
+]
+
+---
+
+## Linear and Unimodal Response
+
+.pull-left[
+
+&lt;img src="compare_communities_files/figure-html/unnamed-chunk-8-1.png" width="80%" /&gt;
+]
+
+.pull-right[
+
+* 生物の出現と環境勾配の関係は２種類に分けられます。
+  - linear: 直線型
+  - unimodal: 一山型
+* 環境勾配が十分取られていたら、生物の出現は基本的に一山型になります。
+* 環境勾配との関係を確認するためには、Detrended Correspondance Analysis (DCA) **除歪対応分析** を使うことがあります()。
+  - DCAの第１成分の標準偏差が &gt; 4 のとき、一山型の解析手法を使います。
+  - DCAの第１成分の標準偏差が &lt; 3 のとき、直線型の解析手法を使います。
+ところが、Hellinger 変換を用いたら、直線型の解析手法でも津開けます。 
+]
+
+Reference: Legendre &amp; Gallagher. 2001. Ecologically meaningful transformations for ordination of species data. Oecologia 129: 271-280; Lepš &amp; Šmilauer. 2003. Multivariate Analysis of Ecological Data using CANOCO. Cambridge Press
+
+---
+class: center, middle
+
+# Constrained Ordination
+
+---
+
+## Redundancy Analysis (1)
+
+.panelset[
+.panel[.panel-name[Species]
+
+まずは群集データを準備します。
+
+
+```r
+tanimae_species = read_rds("~/Lab_Data/tanimaes/seaweed_data/rds_write_out/species_writeout_arikawa_2021.rds")
+tanimae_species = tanimae_species |&gt; select(date, station, species_j, existence) |&gt; 
+  pivot_wider(names_from = species_j, values_from = existence) |&gt; 
+  mutate(year =  year(date), month = month(date), .before = "date") |&gt; select(-date)
+tanimae_species = tanimae_species |&gt;rename_with(.fn = \(x) {sprintf("sp%02d", 1:length(x))}, .cols = !matches("station|month|year"))
+```
+
+]
+.panel[.panel-name[Combine]
+群集データと環境勾配データを合わせます。
+
+
+```r
+tanimae = full_join(tanimae_envdata, tanimae_species, by = c("station", "year", "month"))
+tanimae |&gt; slice_head(n = 3) |&gt; select(1:5)
+```
+
+```
+## # A tibble: 3 × 5
+##    year month station pla_100g_day s1_day
+##   &lt;dbl&gt; &lt;dbl&gt; &lt;fct&gt;          &lt;dbl&gt;  &lt;dbl&gt;
+## 1  2021     2 1               5.61     NA
+## 2  2021     2 2               5.77     NA
+## 3  2021     2 3               9.53     NA
+```
+
+`NA` データが多いので、`tanimae_envdata` をstation ごとに集計してから、結合します。
+
+
+```r
+tanimae_envdata = tanimae_envdata |&gt; group_by(station) |&gt; 
+  summarise(across(!matches("year|month"),
+                   list(mean = mean, var = var), na.rm=T))
+tanimae = full_join(tanimae_envdata, tanimae_species, by = c("station"))
+```
+
+]
+]
+
+---
+
+## Redundancy Analysis (2)
+
+Hellinger standardization
+
+`$$y'_{ij} = \sqrt{\frac{y_{ij}}{\sum_{j}{y_{ij}}}}$$`
+
+
+```r
+RS = tanimae |&gt; select(matches("^sp[0-9]+")) |&gt; rowSums()
+
+Y = tanimae |&gt; select(matches("^sp[0-9]+")) |&gt; 
+  mutate(across(everything(), ~sqrt(.x / RS)))
+
+# vegan::decostand() でもできます。
+# tanimae |&gt; select(matches("^sp[0-9]+")) |&gt; decostand("hellinger")
+```
+
+---
+
+## Redundancy Analysis (3)
+
+.panelset[
+.panel[.panel-name[RDA]
+
+```r
+X = tanimae |&gt; select(!matches("^sp[0-9]+"))
+r1 = rda(Y ~ pla_100g_day_mean + temp_var_mean + s1_day_mean, data = X)
+RsquareAdj(r1)$r.squared # 調整済みR^2
+```
+
+```
+## [1] 0.1740159
+```
+
+制約ありの序列化解析は、調整済み `\(0 \leq R^2 \leq 1\)` を求めるときの値は一般的に低い。
+高いほど、モデルの説明能力が高い。
+]
+
+.panel[.panel-name[RDA (ANOVA)]
+.small[
+
+```r
+# anova(r1, permutations = 999)
+# anova(r1, by = "axis",  permutations = 999)
+anova(r1, by = "terms",  permutations = 999)
+```
+
+```
+## Permutation test for rda under reduced model
+## Terms added sequentially (first to last)
+## Permutation: free
+## Number of permutations: 999
+## 
+## Model: rda(formula = Y ~ pla_100g_day_mean + temp_var_mean + s1_day_mean, data = X)
+##                   Df Variance      F Pr(&gt;F)    
+## pla_100g_day_mean  1  0.07535 5.6524  0.001 ***
+## temp_var_mean      1  0.01350 1.0129  0.392    
+## s1_day_mean        1  0.01787 1.3405  0.165    
+## Residual          38  0.50655                  
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+```
+]
+Bootstrap を用いて、変数ごとのP値ももとめられます。
+]
+]
+
+---
+
+## Redundancy Analysis (4)
+
+RDA の結果を図として示す。
+
+.panelset[
+.panel[.panel-name[Code]
+.small[
+
+
+```r
+# ggvegan::fortify() を使えば rda() の結果から必要な情報を抽出できます。
+r1d_s1 = fortify(r1, axes = 1:2, scaling = 1)
+r1d_s2 = fortify(r1, axes = 1:2, scaling = 2)
+calculate_equilibrium = function(X) {
+  # vegan scales output with a constant.
+  p = length(X$CA$eig)
+  tot = sum(X$CA$eig)
+  n = nrow(X$CA$u)
+  sqrt(2 / p) * ((n-1)*tot)^0.25
+}
+sites1 = r1d_s1 |&gt; filter(str_detect(Score, "sites")) |&gt; mutate(station = X$station)
+sites2 = r1d_s2 |&gt; filter(str_detect(Score, "sites")) |&gt; mutate(station = X$station)
+r0 = calculate_equilibrium(r1)
+p1 = ggplot() +
+  ggforce::geom_circle(aes(x0 = 0, y0 = 0, r = r0), color = "grey50") +
+  geom_point(aes(x = RDA1, y = RDA2, color = station), data = sites1) +
+  geom_segment(aes(x = 0, y = 0, xend = RDA1, yend = RDA2), data = filter(r1d_s1, str_detect(Score, "biplot")),
+               arrow = arrow(15, unit(3, "mm"))) +
+  geom_text(aes(x = 1.1*RDA1,  y = 1.1*RDA2, label = Label), data = filter(r1d_s1, str_detect(Score, "biplot")))  +
+  scale_color_viridis_d(end = 0.9) + guides(color = "none") + coord_equal() + 
+  labs(title = "Distance biplot (scaling = 1)")
+p2 = ggplot() +
+  geom_point(aes(x = RDA1, y = RDA2, color = station), data = sites2) +
+  geom_segment(aes(x = 0, y = 0,　xend = RDA1, yend = RDA2), data = filter(r1d_s2, str_detect(Score, "biplot")),
+               arrow = arrow(15, unit(3, "mm"))) +
+  geom_text(aes(x = 1.1*RDA1, 　y = 1.1*RDA2, label = Label), data = filter(r1d_s2, str_detect(Score, "biplot")))  +
+  scale_color_viridis_d("Station", end = 0.9) + coord_equal()+ 
+  labs(title = "Correlation biplot (scaling = 2)") + theme(legend.position = "left")
+ggarrange(p1,p2,align = "h")
+```
+]
+]
+
+.panel[.panel-name[Plot]
+&lt;img src="compare_communities_files/figure-html/unnamed-chunk-15-1.png" width="100%" /&gt;
+]
+.panel[.panel-name[Comment]
+
+* この結果の場合、Station 1 と 2 は 高い temp_var_mean (水温分散の一日あたりの平均値)、低い s1_day_mean (sediment量の平均値) 、低い pla_100g_day_mean (石膏溶出速度の平均値) との関係が強い (左図）。
+
+* さらに、temp_var_mean と s1_day_mean, pla_100g_day_mean と強い負の相関があるが、
+s1_day_mean と pla_100_g_mean は若干正の相関がある（右図）。
+  
+]
+
+]
+
+---
+class: center, middle
+
+# Calculating Alpha, Beta, and Gamma diversity 
+
+---
+
+## Species richness に対する Alpha, Beta, Gamma 多様度の求め方
+
+$$
+H \equiv \sum_{i = 1}^S p_i^0
+$$
+`\(p\)` は 群集 `\((S)\)` に対する種 `\(i\)` の割合。
+
+さらに、次の条件を満たさなければならない。
+
+* `\(H_a \leq H_g\)`
+* `\(H_a \times H_b = H_{tot}\)`
+
+---
+
+## Species richness に対する Alpha, Beta, Gamma 多様度の求め方 (2)
+
+
+
+```r
+gamma_area = tanimae |&gt; select(station, matches("sp[0-9]+")) |&gt; 
+  pivot_longer(matches("sp")) |&gt; 
+  filter(value &gt; 0) |&gt; select(name) |&gt; distinct() |&gt; nrow()
+
+alpha_area = tanimae |&gt; 
+  select(station, matches("sp[0-9]+")) |&gt; 
+  pivot_longer(matches("sp")) |&gt; filter(value &gt; 0) |&gt; group_by(station) |&gt; 
+  distinct() |&gt; summarise(alpha = sum(value)) 
+
+alpha_area |&gt; mutate(gamma = gamma_area) |&gt; mutate(beta = gamma/alpha)
+```
+
+```
+## # A tibble: 7 × 4
+##   station alpha gamma  beta
+##   &lt;fct&gt;   &lt;dbl&gt; &lt;int&gt; &lt;dbl&gt;
+## 1 1          24    86  3.58
+## 2 2          23    86  3.74
+## 3 3          43    86  2   
+## 4 4          53    86  1.62
+## 5 5          47    86  1.83
+## 6 6          54    86  1.59
+## 7 7          53    86  1.62
+```
+
+---
+
+## Shannon's diversity index による求め方
+
+.panelset[
+.panel[.panel-name[Data]
+
+```r
+fish = read_csv("~/Lab_Data/uraet/2020_fish/fish_all.csv") %&gt;% filter(!location == "amamo")
+abundance = fish |&gt; rename(month = datetime) |&gt; 
+  select(location, trans, species, count, month) |&gt; 
+  filter(month != "2021-09-01") |&gt; 
+  drop_na() |&gt; 
+  mutate(species = str_trim(species, "both")) |&gt; 
+  mutate(species = str_squish(species)) |&gt; 
+  mutate(species = str_replace_all(species, " ", ".")) |&gt; ungroup()
+
+abundance = abundance |&gt; group_by(location, trans, species, month) |&gt; 
+  summarise(count = sum(count, na.rm=T)) |&gt; ungroup()
+abundance = abundance |&gt; pivot_wider(names_from =species, values_from = count, values_fill = 0) |&gt; ungroup()
+abundance = abundance |&gt; unite(sites, c("location","trans"))
+rnames = abundance |&gt;  pull(sites)
+```
+
+]
+.panel[.panel-name[Simple]
+
+```r
+Hg = abundance |&gt; select(matches("(.*)\\.(.*)"))  |&gt; specpool() |&gt; as_tibble()
+Ha = abundance |&gt; select(matches("(.*)\\.(.*)"))  |&gt; specpool(pool=rnames) |&gt; as_tibble(rownames = "sites")
+Ha |&gt; select(sites, alpha = Species) |&gt; mutate(gamma = Hg$Species) |&gt; 
+  mutate(beta = gamma/alpha)
+```
+
+```
+## # A tibble: 4 × 4
+##   sites           alpha gamma  beta
+##   &lt;chr&gt;           &lt;int&gt; &lt;int&gt; &lt;dbl&gt;
+## 1 garamo_deep        21    38  1.81
+## 2 garamo_shallow     27    38  1.41
+## 3 isoyake_deep       18    38  2.11
+## 4 isoyake_shallow    14    38  2.71
+```
+
+]
+.panel[.panel-name[Shannon]
+
+
+
+```r
+Hg = abundance |&gt; select(matches("(.*)\\.(.*)")) |&gt; 
+  summarise(across(everything(), ~sum(.x, na.rm=T))) |&gt; vegan::diversity(index = "shannon") 
+
+Ha = abundance |&gt; group_nest(sites) |&gt; 
+  mutate(data = map(data, function(X) {
+    Ha = X |&gt; select(matches("(.*)\\.(.*)")) |&gt; vegan::diversity(index = "shannon")
+    X |&gt; select(!matches("(.*)\\.(.*)")) |&gt; mutate(Ha)
+  })) |&gt; unnest(data)
+
+Ha |&gt; mutate(Hg) |&gt; mutate(Hb = Hg - Ha) |&gt; group_by(sites) |&gt; summarise(across(c(Ha, Hg, Hb), mean))
+```
+
+```
+## # A tibble: 4 × 4
+##   sites              Ha    Hg    Hb
+##   &lt;chr&gt;           &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+## 1 garamo_deep     1.01   1.88 0.877
+## 2 garamo_shallow  1.21   1.88 0.675
+## 3 isoyake_deep    0.888  1.88 0.997
+## 4 isoyake_shallow 0.859  1.88 1.03
+```
+]
+]
+
+Reference: Jost. 2006. Oikos 113: 363-375; Jost. 2007. Ecology 88: 2427-2439.
+---
+
+## Station 間の Beta 多様度の求め方 
+
+.panelset[
+.panel[.panel-name[Code]
+
+```r
+tspecies = tanimae |&gt; select(station, matches("sp[0-9]+")) |&gt; 
+  group_by(station) |&gt; 
+  summarise(across(matches("sp[0-9]+"), sum)) |&gt; ungroup() 
+station = tspecies |&gt; pull(station)
+tspecies = tspecies |&gt; select(-station) |&gt; as.matrix()
+rownames(tspecies) = station
+BD = tspecies |&gt; decostand("hellinger") |&gt; betadiver(method = "sim")
+BD = BD |&gt; as.matrix()
+BD[lower.tri(BD)] = NA
+BD = BD |&gt; as.tibble(rownames = "station") |&gt; 
+  pivot_longer(!matches("station")) |&gt; drop_na()
+```
+]
+.panel[.panel-name[Figure]
+
+```r
+flabel = "beta*'-diversity'"
+ggplot(BD) +
+  geom_tile(aes(x = station, y = name, fill = value)) +
+  geom_text(aes(x = station, y = name, 
+                label = sprintf("%0.3f", value)),
+            color = ifelse(near(BD$value, 0), "white", "black"),
+            family = "notosans",
+            fontface = "bold",
+            size = 6) +
+  scale_fill_viridis_c(parse(text = flabel),na.value = "white") +
+  guides(fill = guide_colorbar(title.position = "top", 
+                               label.position = "bottom",
+                               barwidth = grid::unit(50, units="mm"),
+                               barheight = grid::unit(10, units = "mm"))) +
+  theme(axis.title = element_blank(),
+        legend.title = element_text(size = 20),
+        legend.text = element_text(size = 15),
+        legend.position = c(0.75, 0.25),
+        legend.justification = c(0.5, 0.5),
+        legend.direction = "horizontal",
+        legend.background = element_blank())
+```
+]
+.panel[.panel-name[Plot]
+&lt;img src="compare_communities_files/figure-html/unnamed-chunk-21-1.png" width="100%" /&gt;
+]
+]
+
+Reference: Koleff, Gaston, Lennon. 2003. Journal of Animal Ecology 72: 367-382.
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"slideNumberFormat": "%current% / %total%",
+"highlightStyle": "monokai",
+"highlightLines": true,
+"ratio": "16:9",
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>

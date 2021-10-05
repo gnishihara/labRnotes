@@ -1,0 +1,618 @@
+---
+title: "Comparing the dissimilarity of communites"
+subtitle: "2021 Tanimae Analysis"  
+author: 
+  - "Greg Nishihara"
+institute: "Aquatic Plant Ecology Lab, Nagasaki University"
+date: 'Compiled on: `r Sys.Date()`'
+output:
+  xaringan::moon_reader:
+    css: xaringan-themer.css
+    nature:
+      slideNumberFormat: "%current% / %total%"
+      highlightStyle: "monokai"
+      highlightLines: true
+      ratio: 16:9
+      countIncrementalSlides: false
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE, width = 200)
+knitr::opts_chunk$set(
+  fig.width=9, fig.height=3, dev = "CairoPNG", dpi = 300,
+  out.width = "100%",
+  cache = FALSE,
+  echo = TRUE,
+  message = FALSE, 
+  warning = FALSE,
+  hiline = TRUE
+)
+Sys.setlocale("LC_TIME", "en_US.UTF-8") # This is to set the server time locate to en_US.UTF-8
+```
+
+```{r xaringan-themer, include=FALSE, warning=FALSE}
+library(xaringanthemer)
+style_solarized_dark(
+  code_font_family = "Fira Code",
+  code_font_url = "https://cdn.jsdelivr.net/gh/tonsky/FiraCode@2/distr/fira_code.css"
+)
+
+library(xaringanExtra)
+xaringanExtra::use_xaringan_extra(c("tile_view", "animate_css", "tachyons", "panelset"))
+xaringanExtra::use_extra_styles(
+  hover_code_line = T
+)
+xaringanthemer::style_extra_css(
+  css = list(".small .remark-code" = list("font-size" = "0.6rem"),
+             "li" = list(margin = "10px 0"),
+             ".title-slide h3" = list(color = "#006fc5"))
+)
+
+```
+
+```{r packages, echo = FALSE}
+library(tidyverse)
+library(lubridate)
+library(readxl)
+library(knitr)
+library(kableExtra)
+library(magick)
+library(vegan)
+library(patchwork)
+library(ggvegan)
+library(showtext)
+library(ggpubr)
+options(knitr.kable.NA = '')
+options(kableExtra.latex.load_packages = FALSE, tidyverse.quiet = TRUE)
+font_add_google("Noto Sans","notosans")
+# 図のフォントがからだったので、ここで修正した
+# １）theme_set() をつかってデフォルトのフォントをかえる
+# ２）ggplot() の theme() からとんとの指定をはずす。
+theme_pubr(base_size = 10, base_family = "notosans") |> theme_set()
+showtext_auto()
+```
+
+## Multivariate analysis
+
+**Multivariate analysis: 多変量解析**
+
+* 生態学における多変量解析の目的
+  - 群集データ・環境勾配の要約をする
+  - 群集データと環境勾配の関係を明らかにする
+
+* 2 種類の解析手法
+  - 群分析 (Clustering)：群集分類に使う、なんかしらの規則に合わせて区分する
+  - 序列化 (Ordination)：環境勾配に対応した群集配置を求める
+
+---
+
+## Ordination: R-analysis and Q-analysis
+
+.pull-left[
+
+```{r, echo = FALSE}
+ifiles = rprojroot::find_rstudio_root_file("images/") |> dir(full= TRUE)
+str_subset(ifiles, "R_analysis") |> image_read("") |> 
+  image_border(color = "white", geometry = "50x50")
+```
+
+]
+.pull-right[
+```{r, echo = FALSE}
+str_subset(ifiles, "Q_analysis") |> image_read("") |> 
+  image_border(color = "white", geometry = "50x50")
+```
+
+]
+
+**有川港の群集データ解析には、Q分析を使います。**
+
+---
+
+## Unconstrained ordination
+
+**制約なしの序列化解析手法**
+
+* 事前に仮設をたてる必要はない。
+* 他変量の予約につかう。
+
+* Principal Component Analysis (PCA) **主成分分析**
+* Correspondence Analysis (CA) **対応分析**
+* Detrended Correspondence analysis (DCA) **傾向化除法対応分析**
+* Principal Coordinate Analysis (PCoA)
+* Non-metric Multi-Dimensional Scaling (NMDS)　**非計量多次元尺度構成法**
+
+---
+
+## Constrained ordination
+
+**制約ありの序列化解析手法**
+
+Requires a hypotheses, can associate a matrix of observations with predictors.
+* Redundancy Analysis (RDA, linear) **冗長性分析**
+* Canonical Correspondance Analysis (CCA, unimodal)  **正準対応分析**
+* Canonical Correlation Analysis (CCorA or COR)
+* Canonical Discriminant Analysis (CDA)
+* Canonical Analysis of Principal Coordinates (CAP)
+
+---
+class: center, middle
+
+# Unconstrained ordination
+
+---
+
+## Principal Components Analysis (1)
+
+データ処理コード：水温は一日あたりの平均の分散を計算した後にそれぞれの月平均を求めた。
+
+```{r getdata}
+fnames = dir("~/Lab_Data/tanimaes/seaweed_data/rds_write_out", full=T)
+plaster = str_subset(fnames, "plaster_") |> read_rds()
+sediment = str_subset(fnames, "sediment_") |> read_rds()
+temperature = str_subset(fnames, "temp_") |> read_rds()
+temperature = temperature |> 
+  mutate(datetime = floor_date(datetime, "day")) |> 
+  group_by(datetime, station) |> 
+  summarise(across(temp, list(mean = mean, var = var))) |> 
+  mutate(datetime = floor_date(datetime, "month")) |> 
+  group_by(station, datetime) |> 
+  summarise(across(c(temp_mean, temp_var), mean)) |> 
+  mutate(year = year(datetime), month = month(datetime))
+tanimae_envdata = full_join(plaster, sediment, by = c("station", "year", "month"))  |> 
+  full_join(temperature, by = c("station", "year", "month")) |> 
+  select(!matches("^expID|^datetime"))
+```
+
+
+---
+
+## Principal Components Analysis (2)
+
+PCAの場合、Q分析用の行列を準備します。
+
+```{r}
+Y = tanimae_envdata |> select(c("year", "month", "station"))
+X = tanimae_envdata |> select(!c("year", "month", "station")) |> drop_na()
+```
+
+.pull-left[
+```{r}
+X
+```
+]
+
+.pull-right[
+`vegan::rda()` をつかって、PCA解析をします。
+その前に、環境データを同じスケールにしたほうがいいので、`scale = TRUE` を渡します。
+
+```{r}
+r1 = X |> rda(scale = TRUE)
+```
+]
+
+
+---
+
+## Principal Components Analysis (3)
+
+.panelset[
+.panel[.panel-name[Code]
+.small[
+
+```{r pcaplot, eval = FALSE}
+# ggvegan::fortify() を使えば rda() の結果から必要な情報を抽出できます。
+r1d_s1 = fortify(r1, axes = 1:2, scaling = 1)
+r1d_s2 = fortify(r1, axes = 1:2, scaling = 2)
+calculate_equilibrium = function(X) {
+  # vegan scales output with a constant.
+  p = length(X$CA$eig)
+  tot = sum(X$CA$eig)
+  n = nrow(X$CA$u)
+  sqrt(2 / p) * ((n-1)*tot)^0.25
+}
+
+r0 = calculate_equilibrium(r1)
+p1 = ggplot() +
+  ggforce::geom_circle(aes(x0 = 0, y0 = 0, r = r0), color = "grey50") +
+  geom_point(aes(x = PC1, y = PC2), data = filter(r1d_s1, str_detect(Score, "sites"))) +
+  geom_segment(aes(x = 0, y = 0, xend = PC1, yend = PC2), data = filter(r1d_s1, str_detect(Score, "species")),
+               arrow = arrow(15, unit(3, "mm"))) +
+  geom_text(aes(x = 1.1*PC1,  y = 1.1*PC2, label = Label), data = filter(r1d_s1, str_detect(Score, "species")))  +
+  coord_equal() + 
+  labs(title = "Distance biplot (scaling = 1)")
+p2 = ggplot() +
+  geom_point(aes(x = PC1, y = PC2),data = filter(r1d_s2, str_detect(Score, "sites"))) +
+  geom_segment(aes(x = 0, y = 0,　xend = PC1, yend = PC2), data = filter(r1d_s2, str_detect(Score, "species")),
+               arrow = arrow(15, unit(3, "mm"))) +
+  geom_text(aes(x = 1.1*PC1, 　y = 1.1*PC2, label = Label), data = filter(r1d_s2, str_detect(Score, "species")))  +
+  coord_equal()+ 
+  labs(title = "Correlation biplot (scaling = 2)")
+p1 + p2
+```
+]
+]
+
+.panel[.panel-name[Plot]
+```{r ref.label="pcaplot", echo = FALSE}
+
+```
+]
+.panel[.panel-name[Comment]
+
+* **Distance biplot**
+
+  - 固有ベクトルは単位長（長さ１）に正規化している。
+  - 各点は多次元空間におけるおおよその位置を示す。
+  - 固有ベクトル間の角度に意味はない。
+  - 円は Circle of equilibrium contribution と呼びます。円の外まで伸びる矢印は主成分に強く貢献している。
+
+* **Correlation biplot**
+  - 固有ベクトルは固有値の平方根に正規化している。
+  - 各点の位置は多次元空間における位置を示さない。
+  - 固有ベクトル間の角度はベクトルどうしの相関を示す。
+  
+* 相関の値は `cor(X)` で示す。
+
+]
+]
+
+
+
+---
+
+## Principal Components Analysis (4)
+
+`vegan::rda()` をつかって、PCA解析をします。
+その前に、環境データを同じスケールにしたほうがいいので、`scale()` で標準化をします。
+
+.panelset[
+.panel[.panel-name[Code]
+
+Site と Species のスコア (score) を非表示にしました (`axes = FALSE`)。
+
+.small[
+```{r}
+summary(r1, axes = FALSE)
+```
+]
+]
+.panel[.panel-name[Comments]
+
+* Interia: データにおける分散を示す。このPCAは correlation 行列から求めたので、値は変数の数です。
+* Constrained / Unconstrained: PCAは制約なしの序列化解析なので、Unconstrained です。
+* Eigenvalue: 固有値は主成分の分散・重要度を示す。
+* Proportion Explained: 主成分ごとの固有値と固有値の和の比率。データの分散に対して、主成分が説明する割合。
+* Cumulative Proportion: 割合の累積
+
+このPCAの場合、主成分１と２だけで 97% 以上の分散を説明している。
+]
+]
+
+---
+
+## Linear and Unimodal Response
+
+.pull-left[
+
+```{r, echo = FALSE, fig.width = 4, fig.height=4, out.width = "80%"}
+ggplot(data = tibble(x = seq(-3,3,by = 0.1)),
+       aes(x = x)) +
+  geom_function(aes(color = "unimodal"), fun = "dnorm") +
+  geom_function(aes(color = "linear"), fun = ~(3.1*0.1)+0.1 * .x) +
+  scale_color_viridis_d(end = 0.8) +
+  scale_x_continuous("Environmental variable", labels = NULL) + 
+  scale_y_continuous("Species richness", labels = NULL) +
+  theme(legend.position = c(0,1),
+        legend.justification = c(0,1),
+        legend.background = element_blank(),
+        legend.title = element_blank()) 
+```
+]
+
+.pull-right[
+
+* 生物の出現と環境勾配の関係は２種類に分けられます。
+  - linear: 直線型
+  - unimodal: 一山型
+* 環境勾配が十分取られていたら、生物の出現は基本的に一山型になります。
+* 環境勾配との関係を確認するためには、Detrended Correspondance Analysis (DCA) **除歪対応分析** を使うことがあります()。
+  - DCAの第１成分の標準偏差が > 4 のとき、一山型の解析手法を使います。
+  - DCAの第１成分の標準偏差が < 3 のとき、直線型の解析手法を使います。
+ところが、Hellinger 変換を用いたら、直線型の解析手法でも津開けます。 
+]
+
+Reference: Legendre & Gallagher. 2001. Ecologically meaningful transformations for ordination of species data. Oecologia 129: 271-280; Lepš & Šmilauer. 2003. Multivariate Analysis of Ecological Data using CANOCO. Cambridge Press
+
+---
+class: center, middle
+
+# Constrained Ordination
+
+---
+
+## Redundancy Analysis (1)
+
+.panelset[
+.panel[.panel-name[Species]
+
+まずは群集データを準備します。
+
+```{r}
+tanimae_species = read_rds("~/Lab_Data/tanimaes/seaweed_data/rds_write_out/species_writeout_arikawa_2021.rds")
+tanimae_species = tanimae_species |> select(date, station, species_j, existence) |> 
+  pivot_wider(names_from = species_j, values_from = existence) |> 
+  mutate(year =  year(date), month = month(date), .before = "date") |> select(-date)
+tanimae_species = tanimae_species |>rename_with(.fn = \(x) {sprintf("sp%02d", 1:length(x))}, .cols = !matches("station|month|year"))
+
+```
+
+]
+.panel[.panel-name[Combine]
+群集データと環境勾配データを合わせます。
+
+```{r}
+tanimae = full_join(tanimae_envdata, tanimae_species, by = c("station", "year", "month"))
+tanimae |> slice_head(n = 3) |> select(1:5)
+```
+
+`NA` データが多いので、`tanimae_envdata` をstation ごとに集計してから、結合します。
+
+```{r}
+tanimae_envdata = tanimae_envdata |> group_by(station) |> 
+  summarise(across(!matches("year|month"),
+                   list(mean = mean, var = var), na.rm=T))
+tanimae = full_join(tanimae_envdata, tanimae_species, by = c("station"))
+```
+
+]
+]
+
+---
+
+## Redundancy Analysis (2)
+
+Hellinger standardization
+
+$$y'_{ij} = \sqrt{\frac{y_{ij}}{\sum_{j}{y_{ij}}}}$$
+
+```{r}
+RS = tanimae |> select(matches("^sp[0-9]+")) |> rowSums()
+
+Y = tanimae |> select(matches("^sp[0-9]+")) |> 
+  mutate(across(everything(), ~sqrt(.x / RS)))
+
+# vegan::decostand() でもできます。
+# tanimae |> select(matches("^sp[0-9]+")) |> decostand("hellinger")
+```
+
+---
+
+## Redundancy Analysis (3)
+
+.panelset[
+.panel[.panel-name[RDA]
+```{r}
+X = tanimae |> select(!matches("^sp[0-9]+"))
+r1 = rda(Y ~ pla_100g_day_mean + temp_var_mean + s1_day_mean, data = X)
+RsquareAdj(r1)$r.squared # 調整済みR^2
+```
+
+制約ありの序列化解析は、調整済み $0 \leq R^2 \leq 1$ を求めるときの値は一般的に低い。
+高いほど、モデルの説明能力が高い。
+]
+
+.panel[.panel-name[RDA (ANOVA)]
+.small[
+```{r}
+# anova(r1, permutations = 999)
+# anova(r1, by = "axis",  permutations = 999)
+anova(r1, by = "terms",  permutations = 999)
+```
+]
+Bootstrap を用いて、変数ごとのP値ももとめられます。
+]
+]
+
+---
+
+## Redundancy Analysis (4)
+
+RDA の結果を図として示す。
+
+.panelset[
+.panel[.panel-name[Code]
+.small[
+
+```{r rdaplot, eval = FALSE}
+# ggvegan::fortify() を使えば rda() の結果から必要な情報を抽出できます。
+r1d_s1 = fortify(r1, axes = 1:2, scaling = 1)
+r1d_s2 = fortify(r1, axes = 1:2, scaling = 2)
+calculate_equilibrium = function(X) {
+  # vegan scales output with a constant.
+  p = length(X$CA$eig)
+  tot = sum(X$CA$eig)
+  n = nrow(X$CA$u)
+  sqrt(2 / p) * ((n-1)*tot)^0.25
+}
+sites1 = r1d_s1 |> filter(str_detect(Score, "sites")) |> mutate(station = X$station)
+sites2 = r1d_s2 |> filter(str_detect(Score, "sites")) |> mutate(station = X$station)
+r0 = calculate_equilibrium(r1)
+p1 = ggplot() +
+  ggforce::geom_circle(aes(x0 = 0, y0 = 0, r = r0), color = "grey50") +
+  geom_point(aes(x = RDA1, y = RDA2, color = station), data = sites1) +
+  geom_segment(aes(x = 0, y = 0, xend = RDA1, yend = RDA2), data = filter(r1d_s1, str_detect(Score, "biplot")),
+               arrow = arrow(15, unit(3, "mm"))) +
+  geom_text(aes(x = 1.1*RDA1,  y = 1.1*RDA2, label = Label), data = filter(r1d_s1, str_detect(Score, "biplot")))  +
+  scale_color_viridis_d(end = 0.9) + guides(color = "none") + coord_equal() + 
+  labs(title = "Distance biplot (scaling = 1)")
+p2 = ggplot() +
+  geom_point(aes(x = RDA1, y = RDA2, color = station), data = sites2) +
+  geom_segment(aes(x = 0, y = 0,　xend = RDA1, yend = RDA2), data = filter(r1d_s2, str_detect(Score, "biplot")),
+               arrow = arrow(15, unit(3, "mm"))) +
+  geom_text(aes(x = 1.1*RDA1, 　y = 1.1*RDA2, label = Label), data = filter(r1d_s2, str_detect(Score, "biplot")))  +
+  scale_color_viridis_d("Station", end = 0.9) + coord_equal()+ 
+  labs(title = "Correlation biplot (scaling = 2)") + theme(legend.position = "left")
+ggarrange(p1,p2,align = "h")
+```
+]
+]
+
+.panel[.panel-name[Plot]
+```{r ref.label="rdaplot", echo = FALSE, fig.height=1.5*3, fig.width=1.5*9}
+
+```
+]
+.panel[.panel-name[Comment]
+
+* この結果の場合、Station 1 と 2 は 高い temp_var_mean (水温分散の一日あたりの平均値)、低い s1_day_mean (sediment量の平均値) 、低い pla_100g_day_mean (石膏溶出速度の平均値) との関係が強い (左図）。
+
+* さらに、temp_var_mean と s1_day_mean, pla_100g_day_mean と強い負の相関があるが、
+s1_day_mean と pla_100_g_mean は若干正の相関がある（右図）。
+  
+]
+
+]
+
+---
+class: center, middle
+
+# Calculating Alpha, Beta, and Gamma diversity 
+
+---
+
+## Species richness に対する Alpha, Beta, Gamma 多様度の求め方
+
+$$
+H \equiv \sum_{i = 1}^S p_i^0
+$$
+$p$ は 群集 $(S)$ に対する種 $i$ の割合。
+
+さらに、次の条件を満たさなければならない。
+
+* $H_a \leq H_g$
+* $H_a \times H_b = H_{tot}$
+
+---
+
+## Species richness に対する Alpha, Beta, Gamma 多様度の求め方 (2)
+
+
+```{r}
+gamma_area = tanimae |> select(station, matches("sp[0-9]+")) |> 
+  pivot_longer(matches("sp")) |> 
+  filter(value > 0) |> select(name) |> distinct() |> nrow()
+
+alpha_area = tanimae |> 
+  select(station, matches("sp[0-9]+")) |> 
+  pivot_longer(matches("sp")) |> filter(value > 0) |> group_by(station) |> 
+  distinct() |> summarise(alpha = sum(value)) 
+
+alpha_area |> mutate(gamma = gamma_area) |> mutate(beta = gamma/alpha)
+```
+
+---
+
+## Shannon's diversity index による求め方
+
+.panelset[
+.panel[.panel-name[Data]
+```{r}
+fish = read_csv("~/Lab_Data/uraet/2020_fish/fish_all.csv") %>% filter(!location == "amamo")
+abundance = fish |> rename(month = datetime) |> 
+  select(location, trans, species, count, month) |> 
+  filter(month != "2021-09-01") |> 
+  drop_na() |> 
+  mutate(species = str_trim(species, "both")) |> 
+  mutate(species = str_squish(species)) |> 
+  mutate(species = str_replace_all(species, " ", ".")) |> ungroup()
+
+abundance = abundance |> group_by(location, trans, species, month) |> 
+  summarise(count = sum(count, na.rm=T)) |> ungroup()
+abundance = abundance |> pivot_wider(names_from =species, values_from = count, values_fill = 0) |> ungroup()
+abundance = abundance |> unite(sites, c("location","trans"))
+rnames = abundance |>  pull(sites)
+
+```
+
+]
+.panel[.panel-name[Simple]
+```{r}
+Hg = abundance |> select(matches("(.*)\\.(.*)"))  |> specpool() |> as_tibble()
+Ha = abundance |> select(matches("(.*)\\.(.*)"))  |> specpool(pool=rnames) |> as_tibble(rownames = "sites")
+Ha |> select(sites, alpha = Species) |> mutate(gamma = Hg$Species) |> 
+  mutate(beta = gamma/alpha)
+```
+
+]
+.panel[.panel-name[Shannon]
+
+
+```{r}
+Hg = abundance |> select(matches("(.*)\\.(.*)")) |> 
+  summarise(across(everything(), ~sum(.x, na.rm=T))) |> vegan::diversity(index = "shannon") 
+
+Ha = abundance |> group_nest(sites) |> 
+  mutate(data = map(data, function(X) {
+    Ha = X |> select(matches("(.*)\\.(.*)")) |> vegan::diversity(index = "shannon")
+    X |> select(!matches("(.*)\\.(.*)")) |> mutate(Ha)
+  })) |> unnest(data)
+
+Ha |> mutate(Hg) |> mutate(Hb = Hg - Ha) |> group_by(sites) |> summarise(across(c(Ha, Hg, Hb), mean))
+```
+]
+]
+
+Reference: Jost. 2006. Oikos 113: 363-375; Jost. 2007. Ecology 88: 2427-2439.
+---
+
+## Station 間の Beta 多様度の求め方 
+
+.panelset[
+.panel[.panel-name[Code]
+```{r}
+tspecies = tanimae |> select(station, matches("sp[0-9]+")) |> 
+  group_by(station) |> 
+  summarise(across(matches("sp[0-9]+"), sum)) |> ungroup() 
+station = tspecies |> pull(station)
+tspecies = tspecies |> select(-station) |> as.matrix()
+rownames(tspecies) = station
+BD = tspecies |> decostand("hellinger") |> betadiver(method = "sim")
+BD = BD |> as.matrix()
+BD[lower.tri(BD)] = NA
+BD = BD |> as.tibble(rownames = "station") |> 
+  pivot_longer(!matches("station")) |> drop_na()
+```
+]
+.panel[.panel-name[Figure]
+```{r betadiver, eval = FALSE}
+flabel = "beta*'-diversity'"
+ggplot(BD) +
+  geom_tile(aes(x = station, y = name, fill = value)) +
+  geom_text(aes(x = station, y = name, 
+                label = sprintf("%0.3f", value)),
+            color = ifelse(near(BD$value, 0), "white", "black"),
+            family = "notosans",
+            fontface = "bold",
+            size = 6) +
+  scale_fill_viridis_c(parse(text = flabel),na.value = "white") +
+  guides(fill = guide_colorbar(title.position = "top", 
+                               label.position = "bottom",
+                               barwidth = grid::unit(50, units="mm"),
+                               barheight = grid::unit(10, units = "mm"))) +
+  theme(axis.title = element_blank(),
+        legend.title = element_text(size = 20),
+        legend.text = element_text(size = 15),
+        legend.position = c(0.75, 0.25),
+        legend.justification = c(0.5, 0.5),
+        legend.direction = "horizontal",
+        legend.background = element_blank())
+```
+]
+.panel[.panel-name[Plot]
+```{r ref.label = "betadiver", echo = FALSE}
+```
+]
+]
+
+Reference: Koleff, Gaston, Lennon. 2003. Journal of Animal Ecology 72: 367-382.
