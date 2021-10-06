@@ -454,7 +454,7 @@ ggplot(data = tibble(x = seq(-3,3,by = 0.1)),
 * 環境勾配との関係を確認するためには、Detrended Correspondance Analysis (DCA) **除歪対応分析** を使うことがあります()。
   - DCAの第１成分の標準偏差が > 4 のとき、一山型の解析手法を使います。
   - DCAの第１成分の標準偏差が < 3 のとき、直線型の解析手法を使います。
-ところが、Hellinger 変換を用いたら、直線型の解析手法でも津開けます。 
+* ところが、Hellinger 変換を用いたら、直線型の解析手法でも使えます。 
 ]
 
 Reference: Legendre & Gallagher. 2001. Ecologically meaningful transformations for ordination of species data. Oecologia 129: 271-280; Lepš & Šmilauer. 2003. Multivariate Analysis of Ecological Data using CANOCO. Cambridge Press
