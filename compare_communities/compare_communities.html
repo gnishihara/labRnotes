@@ -22,7 +22,7 @@ class: center, middle, inverse, title-slide
 ## 2021 Tanimae Analysis
 ### Greg Nishihara
 ### Aquatic Plant Ecology Lab, Nagasaki University
-### Compiled on: 2021-10-05
+### Compiled on: 2021-10-06
 
 ---
 
@@ -286,35 +286,7 @@ summary(r1, axes = FALSE)
 
 ---
 
-## Linear and Unimodal Response
-
-.pull-left[
-
-&lt;img src="compare_communities_files/figure-html/unnamed-chunk-8-1.png" width="80%" /&gt;
-]
-
-.pull-right[
-
-* 生物の出現と環境勾配の関係は２種類に分けられます。
-  - linear: 直線型
-  - unimodal: 一山型
-* 環境勾配が十分取られていたら、生物の出現は基本的に一山型になります。
-* 環境勾配との関係を確認するためには、Detrended Correspondance Analysis (DCA) **除歪対応分析** を使うことがあります()。
-  - DCAの第１成分の標準偏差が &gt; 4 のとき、一山型の解析手法を使います。
-  - DCAの第１成分の標準偏差が &lt; 3 のとき、直線型の解析手法を使います。
-ところが、Hellinger 変換を用いたら、直線型の解析手法でも津開けます。 
-]
-
-Reference: Legendre &amp; Gallagher. 2001. Ecologically meaningful transformations for ordination of species data. Oecologia 129: 271-280; Lepš &amp; Šmilauer. 2003. Multivariate Analysis of Ecological Data using CANOCO. Cambridge Press
-
----
-class: center, middle
-
-# Constrained Ordination
-
----
-
-## Redundancy Analysis (1)
+## 群集行列データの準備
 
 .panelset[
 .panel[.panel-name[Species]
@@ -329,6 +301,9 @@ tanimae_species = tanimae_species |&gt; select(date, station, species_j, existen
   mutate(year =  year(date), month = month(date), .before = "date") |&gt; select(-date)
 tanimae_species = tanimae_species |&gt;rename_with(.fn = \(x) {sprintf("sp%02d", 1:length(x))}, .cols = !matches("station|month|year"))
 ```
+
+群集行列の制約なし序列化解析をする時、群集行列の処理が必要です。
+ここでは、Hellinger 変換と変換後の距離行列 (Distance) を求めます。
 
 ]
 .panel[.panel-name[Combine]
@@ -358,13 +333,9 @@ tanimae_envdata = tanimae_envdata |&gt; group_by(station) |&gt;
                    list(mean = mean, var = var), na.rm=T))
 tanimae = full_join(tanimae_envdata, tanimae_species, by = c("station"))
 ```
-
-]
 ]
 
----
-
-## Redundancy Analysis (2)
+.panel[.panel-name[Hellinger]
 
 Hellinger standardization
 
@@ -376,14 +347,125 @@ RS = tanimae |&gt; select(matches("^sp[0-9]+")) |&gt; rowSums()
 
 Y = tanimae |&gt; select(matches("^sp[0-9]+")) |&gt; 
   mutate(across(everything(), ~sqrt(.x / RS)))
-
 # vegan::decostand() でもできます。
 # tanimae |&gt; select(matches("^sp[0-9]+")) |&gt; decostand("hellinger")
 ```
+]
+
+.panel[.panel-name[Distance]
+
+
+```r
+Yd = vegdist(Y, method = "bray")
+```
+
+距離の求め方は様々ですが、ここでは Bray-Curtis の距離を求めます。
+
+`$$d_{jk} = \frac{\sum_{}^{} |x_{ij} - x_{ik}|}{\sum_{}^{} x_{ij} + x_{ik}}$$`
+
+Bray-Curtis 距離（指数）は station `\(j\)` の 種 `\(i\)` と station `\(k\)` の種 `\(i\)` の標準化距離です。
+
+]
+
+]
 
 ---
 
-## Redundancy Analysis (3)
+## nMDS
+
+.panelset[
+.panel[.panel-name[nMDS]
+
+**nMDS (Non-metric Multi-Dimensional Scaling): 非計量多次元尺度構成法** は距離の rank（順位）にもとづいて図とつくることです。
+距離の順位を使うので、nMDSはノンパラメトリック手法です。
+ところが、計算方法は反復的に行うので、疑似乱数関数を定義しないと、解析を再現できません。
+店の位置が微妙に変わりますが、点と点の間の関係は大きく変わりません。
+
+
+```r
+set.seed(2021)
+Ydout = metaMDS(Yd, k = 2, trace = 0, trymax = 1000)
+Ydout_df = Ydout$points |&gt; as_tibble() |&gt; mutate(station = tanimae$station)
+centroids = Ydout_df |&gt; group_by(station) |&gt; summarise(across(matches("MDS"), mean))
+```
+]
+.panel[.panel-name[Diagnostics]
+
+.pull-left[
+
+```r
+stressplot(Ydout)
+```
+
+&lt;img src="compare_communities_files/figure-html/unnamed-chunk-14-1.png" width="100%" /&gt;
+]
+
+.pull-right[
+
+stressplot の軸は *Ordination Distance* と *Observed Dissimilarity* です。
+*Ordination distance* は nMDS が求めた値、*Observed Dissimilarity* は関数に渡した距離行列の値です。
+理想は、赤線の周りの近くに点がばらつくことです。
+理想外の結果が示されたら、nMDSの成分数 (k) を増やしてみましょう。
+
+]
+
+]
+.panel[.panel-name[Code]
+
+```r
+ggplot(Ydout_df) + 
+  geom_point(aes(x = MDS1, y = MDS2, color = station)) +
+  geom_point(aes(x = MDS1, y = MDS2, color = station), data = centroids, size = 10, shape = 3, show.legend = F) + 
+  scale_color_viridis_d(end = 0.9) +
+  annotate("text", x = -Inf, y = Inf, label = sprintf("Stress: %0.4f", Ydout$stress),
+           vjust = 1, hjust = 0, family = "notosans", size = 8) +
+  guides(color = guide_legend(title = "Station", nrow = 1))
+```
+
+]
+.panel[.panel-name[Plot]
+&lt;img src="compare_communities_files/figure-html/unnamed-chunk-15-1.png" width="100%" /&gt;
+
+`+` 記号は station ごとの重心を示す。
+似ているものは近くに集まる。
+Stress が低いほど、当てはめがいい。
+軸の数 (k) を増やすと stress は下がるが、結果の考察が難しくなる。
+
+]
+]
+
+
+---
+
+## Linear and Unimodal Response
+
+.pull-left[
+
+&lt;img src="compare_communities_files/figure-html/unnamed-chunk-16-1.png" width="80%" /&gt;
+]
+
+.pull-right[
+
+* 生物の出現と環境勾配の関係は２種類に分けられます。
+  - linear: 直線型
+  - unimodal: 一山型
+* 環境勾配が十分取られていたら、生物の出現は基本的に一山型になります。
+* 環境勾配との関係を確認するためには、Detrended Correspondance Analysis (DCA) **除歪対応分析** を使うことがあります()。
+  - DCAの第１成分の標準偏差が &gt; 4 のとき、一山型の解析手法を使います。
+  - DCAの第１成分の標準偏差が &lt; 3 のとき、直線型の解析手法を使います。
+ところが、Hellinger 変換を用いたら、直線型の解析手法でも津開けます。 
+]
+
+Reference: Legendre &amp; Gallagher. 2001. Ecologically meaningful transformations for ordination of species data. Oecologia 129: 271-280; Lepš &amp; Šmilauer. 2003. Multivariate Analysis of Ecological Data using CANOCO. Cambridge Press
+
+---
+class: center, middle
+
+# Constrained Ordination
+
+---
+
+## Redundancy Analysis (1)
 
 .panelset[
 .panel[.panel-name[RDA]
@@ -403,7 +485,8 @@ RsquareAdj(r1)$r.squared # 調整済みR^2
 ]
 
 .panel[.panel-name[RDA (ANOVA)]
-.small[
+
+
 
 ```r
 # anova(r1, permutations = 999)
@@ -420,20 +503,21 @@ anova(r1, by = "terms",  permutations = 999)
 ## Model: rda(formula = Y ~ pla_100g_day_mean + temp_var_mean + s1_day_mean, data = X)
 ##                   Df Variance      F Pr(&gt;F)    
 ## pla_100g_day_mean  1  0.07535 5.6524  0.001 ***
-## temp_var_mean      1  0.01350 1.0129  0.392    
-## s1_day_mean        1  0.01787 1.3405  0.165    
+## temp_var_mean      1  0.01350 1.0129  0.356    
+## s1_day_mean        1  0.01787 1.3405  0.160    
 ## Residual          38  0.50655                  
 ## ---
 ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 ```
-]
+
 Bootstrap を用いて、変数ごとのP値ももとめられます。
+
 ]
 ]
 
 ---
 
-## Redundancy Analysis (4)
+## Redundancy Analysis (2)
 
 RDA の結果を図として示す。
 
@@ -477,7 +561,7 @@ ggarrange(p1,p2,align = "h")
 ]
 
 .panel[.panel-name[Plot]
-&lt;img src="compare_communities_files/figure-html/unnamed-chunk-15-1.png" width="100%" /&gt;
+&lt;img src="compare_communities_files/figure-html/unnamed-chunk-19-1.png" width="100%" /&gt;
 ]
 .panel[.panel-name[Comment]
 
@@ -664,7 +748,7 @@ ggplot(BD) +
 ```
 ]
 .panel[.panel-name[Plot]
-&lt;img src="compare_communities_files/figure-html/unnamed-chunk-21-1.png" width="100%" /&gt;
+&lt;img src="compare_communities_files/figure-html/unnamed-chunk-25-1.png" width="100%" /&gt;
 ]
 ]
 

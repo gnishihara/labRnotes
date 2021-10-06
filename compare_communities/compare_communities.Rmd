@@ -291,6 +291,141 @@ summary(r1, axes = FALSE)
 
 ---
 
+## 群集行列データの準備
+
+.panelset[
+.panel[.panel-name[Species]
+
+まずは群集データを準備します。
+
+```{r}
+tanimae_species = read_rds("~/Lab_Data/tanimaes/seaweed_data/rds_write_out/species_writeout_arikawa_2021.rds")
+tanimae_species = tanimae_species |> select(date, station, species_j, existence) |> 
+  pivot_wider(names_from = species_j, values_from = existence) |> 
+  mutate(year =  year(date), month = month(date), .before = "date") |> select(-date)
+tanimae_species = tanimae_species |>rename_with(.fn = \(x) {sprintf("sp%02d", 1:length(x))}, .cols = !matches("station|month|year"))
+
+```
+
+群集行列の制約なし序列化解析をする時、群集行列の処理が必要です。
+ここでは、Hellinger 変換と変換後の距離行列 (Distance) を求めます。
+
+]
+.panel[.panel-name[Combine]
+群集データと環境勾配データを合わせます。
+
+```{r}
+tanimae = full_join(tanimae_envdata, tanimae_species, by = c("station", "year", "month"))
+tanimae |> slice_head(n = 3) |> select(1:5)
+```
+
+`NA` データが多いので、`tanimae_envdata` をstation ごとに集計してから、結合します。
+
+```{r}
+tanimae_envdata = tanimae_envdata |> group_by(station) |> 
+  summarise(across(!matches("year|month"),
+                   list(mean = mean, var = var), na.rm=T))
+tanimae = full_join(tanimae_envdata, tanimae_species, by = c("station"))
+```
+]
+
+.panel[.panel-name[Hellinger]
+
+Hellinger standardization
+
+$$y'_{ij} = \sqrt{\frac{y_{ij}}{\sum_{j}{y_{ij}}}}$$
+
+```{r}
+RS = tanimae |> select(matches("^sp[0-9]+")) |> rowSums()
+
+Y = tanimae |> select(matches("^sp[0-9]+")) |> 
+  mutate(across(everything(), ~sqrt(.x / RS)))
+# vegan::decostand() でもできます。
+# tanimae |> select(matches("^sp[0-9]+")) |> decostand("hellinger")
+```
+]
+
+.panel[.panel-name[Distance]
+
+```{r}
+Yd = vegdist(Y, method = "bray")
+```
+
+距離の求め方は様々ですが、ここでは Bray-Curtis の距離を求めます。
+
+$$d_{jk} = \frac{\sum_{}^{} |x_{ij} - x_{ik}|}{\sum_{}^{} x_{ij} + x_{ik}}$$
+
+Bray-Curtis 距離（指数）は station $j$ の 種 $i$ と station $k$ の種 $i$ の標準化距離です。
+
+]
+
+]
+
+---
+
+## nMDS
+
+.panelset[
+.panel[.panel-name[nMDS]
+
+**nMDS (Non-metric Multi-Dimensional Scaling): 非計量多次元尺度構成法** は距離の rank（順位）にもとづいて図とつくることです。
+距離の順位を使うので、nMDSはノンパラメトリック手法です。
+ところが、計算方法は反復的に行うので、疑似乱数関数を定義しないと、解析を再現できません。
+店の位置が微妙に変わりますが、点と点の間の関係は大きく変わりません。
+
+```{r}
+set.seed(2021)
+Ydout = metaMDS(Yd, k = 2, trace = 0, trymax = 1000)
+Ydout_df = Ydout$points |> as_tibble() |> mutate(station = tanimae$station)
+centroids = Ydout_df |> group_by(station) |> summarise(across(matches("MDS"), mean))
+```
+]
+.panel[.panel-name[Diagnostics]
+
+.pull-left[
+```{r, fig.height=4, fig.width=8}
+stressplot(Ydout)
+```
+]
+
+.pull-right[
+
+stressplot の軸は *Ordination Distance* と *Observed Dissimilarity* です。
+*Ordination distance* は nMDS が求めた値、*Observed Dissimilarity* は関数に渡した距離行列の値です。
+理想は、赤線の周りの近くに点がばらつくことです。
+理想外の結果が示されたら、nMDSの成分数 (k) を増やしてみましょう。
+
+]
+
+]
+.panel[.panel-name[Code]
+```{r nmdsplot, eval = F}
+ggplot(Ydout_df) + 
+  geom_point(aes(x = MDS1, y = MDS2, color = station)) +
+  geom_point(aes(x = MDS1, y = MDS2, color = station), data = centroids, size = 10, shape = 3, show.legend = F) + 
+  scale_color_viridis_d(end = 0.9) +
+  annotate("text", x = -Inf, y = Inf, label = sprintf("Stress: %0.4f", Ydout$stress),
+           vjust = 1, hjust = 0, family = "notosans", size = 8) +
+  guides(color = guide_legend(title = "Station", nrow = 1))
+```
+
+]
+.panel[.panel-name[Plot]
+```{r ref.label="nmdsplot", echo = FALSE}
+
+```
+
+`+` 記号は station ごとの重心を示す。
+似ているものは近くに集まる。
+Stress が低いほど、当てはめがいい。
+軸の数 (k) を増やすと stress は下がるが、結果の考察が難しくなる。
+
+]
+]
+
+
+---
+
 ## Linear and Unimodal Response
 
 .pull-left[
@@ -334,63 +469,6 @@ class: center, middle
 ## Redundancy Analysis (1)
 
 .panelset[
-.panel[.panel-name[Species]
-
-まずは群集データを準備します。
-
-```{r}
-tanimae_species = read_rds("~/Lab_Data/tanimaes/seaweed_data/rds_write_out/species_writeout_arikawa_2021.rds")
-tanimae_species = tanimae_species |> select(date, station, species_j, existence) |> 
-  pivot_wider(names_from = species_j, values_from = existence) |> 
-  mutate(year =  year(date), month = month(date), .before = "date") |> select(-date)
-tanimae_species = tanimae_species |>rename_with(.fn = \(x) {sprintf("sp%02d", 1:length(x))}, .cols = !matches("station|month|year"))
-
-```
-
-]
-.panel[.panel-name[Combine]
-群集データと環境勾配データを合わせます。
-
-```{r}
-tanimae = full_join(tanimae_envdata, tanimae_species, by = c("station", "year", "month"))
-tanimae |> slice_head(n = 3) |> select(1:5)
-```
-
-`NA` データが多いので、`tanimae_envdata` をstation ごとに集計してから、結合します。
-
-```{r}
-tanimae_envdata = tanimae_envdata |> group_by(station) |> 
-  summarise(across(!matches("year|month"),
-                   list(mean = mean, var = var), na.rm=T))
-tanimae = full_join(tanimae_envdata, tanimae_species, by = c("station"))
-```
-
-]
-]
-
----
-
-## Redundancy Analysis (2)
-
-Hellinger standardization
-
-$$y'_{ij} = \sqrt{\frac{y_{ij}}{\sum_{j}{y_{ij}}}}$$
-
-```{r}
-RS = tanimae |> select(matches("^sp[0-9]+")) |> rowSums()
-
-Y = tanimae |> select(matches("^sp[0-9]+")) |> 
-  mutate(across(everything(), ~sqrt(.x / RS)))
-
-# vegan::decostand() でもできます。
-# tanimae |> select(matches("^sp[0-9]+")) |> decostand("hellinger")
-```
-
----
-
-## Redundancy Analysis (3)
-
-.panelset[
 .panel[.panel-name[RDA]
 ```{r}
 X = tanimae |> select(!matches("^sp[0-9]+"))
@@ -403,20 +481,22 @@ RsquareAdj(r1)$r.squared # 調整済みR^2
 ]
 
 .panel[.panel-name[RDA (ANOVA)]
-.small[
+
+
 ```{r}
 # anova(r1, permutations = 999)
 # anova(r1, by = "axis",  permutations = 999)
 anova(r1, by = "terms",  permutations = 999)
 ```
-]
+
 Bootstrap を用いて、変数ごとのP値ももとめられます。
+
 ]
 ]
 
 ---
 
-## Redundancy Analysis (4)
+## Redundancy Analysis (2)
 
 RDA の結果を図として示す。
 
