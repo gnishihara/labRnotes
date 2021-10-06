@@ -17,6 +17,7 @@
 * [基礎統計学用マニュアル](https://gnishihara.github.io/labRnotes/kisotokei/kisotokei.html) 基礎統計学用のRマニュアル・随時更新する
 * [Ordinal GAM](https://gnishihara.github.io/labRnotes/Ordinal_2DGAM/OrdinalGAM.html) 我部山くんのアマモ場データ
 * [生物群集の解析](https://gnishihara.github.io/labRnotes/compare_communities/compare_communities.html) 谷前くん・浦江くんのデータ
+* [大村湾の解析例](https://gnishihara.github.io/labRnotes/omura_map_distance/omura_map_distance.html) 松室くんのデータ
 
 -------------------------
 

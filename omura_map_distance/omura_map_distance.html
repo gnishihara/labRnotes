@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Zostera mapping at Omura Bay</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Greg Nishihara" />
+    <script src="omura_map_distance_files/header-attrs/header-attrs.js"></script>
+    <link href="omura_map_distance_files/tile-view/tile-view.css" rel="stylesheet" />
+    <script src="omura_map_distance_files/tile-view/tile-view.js"></script>
+    <link href="omura_map_distance_files/animate.css/animate.xaringan.css" rel="stylesheet" />
+    <link href="omura_map_distance_files/tachyons/tachyons.min.css" rel="stylesheet" />
+    <link href="omura_map_distance_files/panelset/panelset.css" rel="stylesheet" />
+    <script src="omura_map_distance_files/panelset/panelset.js"></script>
+    <link href="omura_map_distance_files/xaringanExtra-extra-styles/xaringanExtra-extra-styles.css" rel="stylesheet" />
+    <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# Zostera mapping at Omura Bay
+## 2021 Shige-chan data
+### Greg Nishihara
+### Aquatic Plant Ecology Lab, Nagasaki University
+### Compiled on: 2021-10-06
+
+---
+
+
+
+
+
+
+
+
+## Required packages
+
+地図の作成に必要なパッケージは次の通りです。
+
+
+```r
+library(ggspatial) # North Arrow の関数
+library(sf)
+```
+
+
+---
+
+## Prepare data
+
+データはExcelで集計され、日本語を含むので、文字コードに注意。
+このとき、sjis でした。
+
+
+```r
+data = read_csv("~/Lab_Data/matsumuro/longlat_info.csv", locale = locale(encoding = "sjis"))
+```
+
+`eelgrass`変数は論理値に変換し、`coverage (%)`変数名も変える。
+
+
+```r
+data = data |&gt; rename(coverage = matches("cover")) |&gt; 
+  mutate(eelgrass = ifelse(coverage &gt; 0, T, F))
+```
+
+
+---
+
+## Revise coverage rankings
+
+アマモの被度のランク付けをする。
+
+
+```r
+data = data |&gt; 
+  mutate(rank = 5) |&gt; 
+  mutate(rank = ifelse(coverage &gt;5,  4, rank)) |&gt; 
+  mutate(rank = ifelse(coverage &gt;25, 3, rank)) |&gt; 
+  mutate(rank = ifelse(coverage &gt;40, 2, rank)) |&gt; 
+  mutate(rank = ifelse(coverage &gt;95, 1, rank)) |&gt; 
+  mutate(rank = factor(rank, levels = 1:5, labels = LETTERS[1:5]))
+```
+
+Reference: McKenzie. 2003. Guidelines for the rapid assessment of seagrass habitats in the western Pacific.
+
+---
+
+## Prepare map -- Google Earth version
+
+図は Google Earth 上に描いたポリゴンでつくる。
+
+
+```r
+kml = "~/Lab_Data/matsumuro/Katagami_Bay/Katagami_Bay.kml"
+katagami = st_read(kml)  # KMLファイルを読み込む
+```
+
+```
+## Reading layer `無題のプロジェクト' from data source `/home/Lab_Data/matsumuro/Katagami_Bay/Katagami_Bay.kml' using driver `LIBKML'
+## Simple feature collection with 2 features and 11 fields
+## Geometry type: POLYGON
+## Dimension:     XYZ
+## Bounding box:  xmin: 129.7834 ymin: 32.89948 xmax: 129.8073 ymax: 32.95437
+## z_range:       zmin: 1.58997 zmax: 4.440515
+## Geodetic CRS:  WGS 84
+```
+
+```r
+katagami = st_zm(katagami) # z の座標をはずす（重要）
+katagami_bay = st_union(katagami)
+```
+
+Google Earth の座標は WGS84 です。
+データと地図の座標を合わせないと位置がずれます！
+
+
+```r
+# もとの座標を保存する
+# 重要：Geodetic CRS: WGS84
+crs_original = st_crs(katagami)
+```
+
+---
+
+## Add coordinates to data
+
+観測データのGPS情報に、WGS84 座標を適応する。
+
+
+```r
+data = st_as_sf(data, coords = c("long", "lat"), crs = crs_original)
+```
+
+---
+
+## Plot the map
+
+.panelset[
+.panel[.panel-name[Code]
+
+```r
+ggplot() + 
+  geom_sf(data = katagami_bay) +
+  labs(title = "Katagami Bay, Nagasaki, Japan",
+       subtitle = "May - June 2021")
+```
+]
+.panel[.panel-name[Plot]
+
+
+&lt;img src="omura_map_distance_files/figure-html/unnamed-chunk-9-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+]
+]
+
+---
+
+## Add the data to the map
+
+.panelset[
+.panel[.panel-name[Code]
+
+```r
+clabel = "'Presence of '*italic('Zostera marina')"
+
+ggplot() + 
+  geom_sf(data = katagami_bay) +
+  geom_sf(aes(color = rank), data = data, size = 10, alpha = 0.9) +
+  ggspatial::annotation_north_arrow(style = north_arrow_minimal(text_size = 30,
+                                                                 text_face = "bold"), 
+                                    height = unit(30, "mm"),
+                                    width = unit(30, "mm"))+
+  scale_color_viridis_d(end = 0.9, drop = F, option = "C") +
+  labs(title = "Katagami Bay, Nagasaki, Japan",
+       subtitle = "May - June 2021") +
+  theme(text = element_text(size = 20),
+    legend.position = c(1,1),
+        legend.justification = c(1,1),
+        legend.title = element_blank(),
+        legend.background = element_blank(),
+    axis.text = element_blank(),
+    axis.title = element_blank(),
+    axis.ticks = element_blank(),
+        axis.line = element_blank())
+```
+]
+.panel[.panel-name[Plot]
+&lt;img src="omura_map_distance_files/figure-html/unnamed-chunk-10-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+]
+]
+
+
+---
+
+## Prepare map -- Tanimae version
+
+.panelset[
+.panel[.panel-name[Data]
+
+Google Earth と異なり、この地図データの座標は JGD2011 です。
+
+
+```r
+# 重要：Geodetic CRS: JGD2011
+gsi = tibble(xml = dir("~/Lab_Data/Japan_map_data/FG/", full.names = TRUE)) |&gt;
+  mutate(fname = basename(xml)) |&gt;
+  separate(fname, into = c("fg", "gml", "id", "type", "date", "num")) |&gt;
+  filter(str_detect(type, "WA")) |&gt;  # map type.
+  filter(str_detect(id, "492926|492936")) # gml id.
+
+try_read_fgd = possibly(fgdr::read_fgd, NULL)
+out = gsi |&gt; mutate(data = map(xml, try_read_fgd)) |&gt; pull(data) |&gt; bind_rows()
+```
+
+データの座標は WGS84 から JGD2011 に変える。
+
+
+```r
+crs_original = st_crs(out)
+out = out |&gt; mutate(type = recode(type, `河川・湖池` = "Freshwater", `海` = "Seawater"))
+data = st_transform(data, crs = crs_original)
+```
+]
+.panel[.panel-name[Code]
+
+
+```r
+lonlimits = c(129.779262, 129.807706)
+latlimits = c(32.897657, 32.955917)
+ggplot(out) +
+  geom_sf(aes(fill = type), color = NA) +
+  geom_sf(aes(color = rank), data = data, size = 10, alpha = 0.9) +
+  annotation_north_arrow(style = north_arrow_minimal(text_size = 30, text_face = "bold"), 
+                         height = unit(30, "mm"), width = unit(30, "mm"))+
+  scale_color_viridis_d(end = 0.9, drop = F, option = "C") +
+  scale_fill_manual(values = list("Freshwater" = "cyan", "Seawater" = "blue3")) +
+  labs(title = "Katagami Bay, Nagasaki, Japan", subtitle = "May - June 2021") +
+  coord_sf(xlim = lonlimits, ylim = latlimits) +
+  theme(text = element_text(size = 20),
+        legend.position = c(0, 1),
+        legend.justification = c(0, 1),
+        legend.title = element_blank(),
+        legend.background = element_blank(),
+        axis.text = element_blank(),
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        axis.line = element_blank())
+```
+
+]
+.panel[.panel-name[Plot]
+&lt;img src="omura_map_distance_files/figure-html/unnamed-chunk-13-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+]
+]
+
+---
+class: center, middle
+
+# Data analysis
+
+---
+
+## River mouth coordinates
+
+河口域の位置 tibble を準備して、座標を JGD2011 に適応する。
+
+
+```r
+katagami_north  = tibble(lat = 32.948837958609886, long = 129.7866883617852)
+katagami_west   = tibble(lat = 32.94267987719071,  long = 129.7839904809208)
+katagami_south1 = tibble(lat = 32.912866017121715, long = 129.78481482222608)
+katagami_south2 = tibble(lat = 32.908292188851085, long = 129.78374139498624)
+katagami_south3 = tibble(lat = 32.905401543494754, long = 129.78615154299735)
+
+river = bind_rows(north = katagami_north,
+                  west = katagami_west,
+                  south1 = katagami_south1,
+                  south2 = katagami_south2,
+                  south3 = katagami_south3, .id = "river")
+
+river = st_as_sf(river, coords = c("long", "lat"), crs = crs_original)
+```
+
+---
+
+## Calculate distance from river mouth in meters
+
+河口域から調査地点の距離を計算する。
+
+
+```r
+calc_distance = function(river, gps) {
+  # st_distance() return values in meters
+  st_distance(river, gps) |&gt; as.numeric()
+}
+
+data2 = data |&gt; 
+  mutate(distance_north  = calc_distance(river$geometry[1], geometry)) |&gt; 
+  mutate(distance_west   = calc_distance(river$geometry[2], geometry)) |&gt; 
+  mutate(distance_south1 = calc_distance(river$geometry[3], geometry)) |&gt; 
+  mutate(distance_south2 = calc_distance(river$geometry[4], geometry)) |&gt; 
+  mutate(distance_south3 = calc_distance(river$geometry[5], geometry))
+```
+
+---
+
+## Prepare data for analysis
+
+データを解析用にピボットする。
+
+
+```r
+data2 = data2 |&gt; select(coverage, rank, Name, matches("distance")) |&gt; 
+  pivot_longer(matches("distance"),
+               names_pattern = "distance_(.*)",
+               names_to = "river",
+               values_to = "distance")
+```
+
+河口域からの最短の距離を抽出する。
+
+
+```r
+data2 = data2 |&gt; group_by(Name) |&gt; 
+  filter(near(distance, min(distance))) |&gt; ungroup()
+```
+
+---
+
+
+## Binomial GLM
+
+アマモ場の有無を求めて、一般化線形モデルを用いて解析する。
+使用分布は二項分布、リンク関数はロジット関数です。
+
+
+```r
+data2 = data2 |&gt; 
+  mutate(present = ifelse(str_detect(rank, "E"), 0, 1)) |&gt; 
+  mutate(absent  = ifelse(str_detect(rank, "E"), 1, 0))
+```
+
+
+```r
+m1 = glm(cbind(present, absent) ~ distance, data = data2, family = binomial("logit"))
+anova(m1, test = "Chi")
+```
+
+```
+## Analysis of Deviance Table
+## 
+## Model: binomial, link: logit
+## 
+## Response: cbind(present, absent)
+## 
+## Terms added sequentially (first to last)
+## 
+## 
+##          Df Deviance Resid. Df Resid. Dev  Pr(&gt;Chi)    
+## NULL                       104      96.21              
+## distance  1   24.151       103      72.06 8.909e-07 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+```
+
+---
+
+## Binomial GLM figure
+
+.panelset[
+.panel[.panel-name[Code]
+
+```r
+pdata = data2 |&gt; expand(distance = seq(min(distance), max(distance), by = 1))
+pdata = pdata |&gt; bind_cols(predict(m1, newdata = pdata, type = "response", se.fit = T) |&gt; 
+                             as_tibble())
+ggplot() + 
+  geom_point(aes(x = distance, y = present/(present + absent)), data = data2) +
+  geom_line(aes(x = distance, y = fit), data = pdata) +
+  geom_ribbon(aes(x = distance, ymin = fit - se.fit, ymax = fit + se.fit), 
+              data = pdata, alpha = 0.5) +
+  scale_x_continuous("Distance from river mouth (m)") +
+  scale_y_continuous("Probability of occurrence")
+```
+
+]
+.panel[.panel-name[Plot]
+&lt;img src="omura_map_distance_files/figure-html/unnamed-chunk-20-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+線はモデルの期待値、網掛けは期待値の 95% 信頼区間です。
+]
+]
+
+
+---
+class: center, middle
+
+# ベイズ法を用いた解析
+
+---
+
+## Multinomial GLM
+
+多項分布の解析はベイズ法で実施したほうが楽です。
+
+.panelset[
+.panel[.panel-name[rstanarm]
+
+```r
+library(rstanarm)
+library(tidybayes)
+mn1 = stan_polr(rank ~ distance, data = data2, prior = R2(0.50, "mean"), cores = 4)
+```
+
+
+
+]
+.panel[.panel-name[Predictions]
+
+```r
+pdata = data2 |&gt; expand(distance = seq(min(distance), max(distance), by = 50))
+
+threshold = mn1 |&gt; gather_draws(`.*[|].*`, regex = T) |&gt; 
+  group_by(.draw) |&gt; select(.draw, threshold = .value) |&gt; 
+  summarise(across(everything(), list)) |&gt; 
+  mutate(threshold = map(threshold, ~c(., Inf)))
+
+pdata = data2 |&gt; modelr::data_grid(distance) |&gt; 
+  add_linpred_draws(mn1) |&gt; ungroup() |&gt; 
+  inner_join(threshold, by = ".draw") |&gt; 
+  mutate(probs = map2(threshold, .linpred, function(alpha, beta_x){
+    plogis(alpha - beta_x) - plogis(lag(alpha, default = -Inf) - beta_x)
+  })) |&gt; 
+  mutate(.category = list(levels(data2$rank))) |&gt; 
+  unnest(c(threshold, probs, .category))
+
+pdata2 = pdata |&gt; group_by(distance, .category) |&gt; mean_hdci(probs)
+```
+]
+.panel[.panel-name[Code]
+.small[
+
+```r
+add_rank = function(x) {str_glue("Rank: {x}")}
+plot1 = data2 |&gt; group_by(rank) |&gt; summarise(n = length(rank)) |&gt; mutate(prop = n / sum(n)) |&gt; 
+  ggplot() + 
+  geom_col(aes(x = rank, y = prop, fill = rank), na.rm = F) +
+  scale_x_discrete("Coverage rank",drop = F) +
+  scale_y_continuous("Observed frequency", limits= c(0, 1)) +
+  scale_fill_viridis_d(end = 0.9, drop =F) +
+  theme(legend.position = c(0,1), legend.justification = c(0,1),
+        legend.background = element_blank(), legend.title = element_blank())
+plot2 = ggplot() +
+  geom_line(aes(x = distance, y = probs, color = .category), data = pdata2) +
+  geom_ribbon(aes(x = distance, ymin = .lower, ymax = .upper, fill = .category),
+              alpha = 0.5, data = pdata2)  +
+  scale_fill_viridis_d("", end = 0.9, drop =F) +
+  scale_color_viridis_d("", end = 0.9, drop =F) +
+  scale_x_continuous("Distance from river mouth (m)") +
+  scale_y_continuous("Probability of occurrence") +
+  guides(fill = "none", color = "none") +
+  facet_wrap(vars(.category), labeller = as_labeller(add_rank)) +
+  theme(strip.background = element_rect(fill = NA, color = "black"))
+ggarrange(plot1, plot2, widths = c(1, 3))
+```
+]
+]
+.panel[.panel-name[Plot]
+&lt;img src="omura_map_distance_files/figure-html/unnamed-chunk-25-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+]
+
+]
+
+
+
+
+
+
+
+
+
+
+
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"slideNumberFormat": "%current% / %total%",
+"highlightStyle": "monokai",
+"highlightLines": true,
+"ratio": "16:9",
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
