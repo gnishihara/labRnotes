@@ -77,6 +77,9 @@ latlimits = c(32.897657, 32.955917)
 
 box = c(xmin = lonlimits[1], ymin = latlimits[1],
         xmax = lonlimits[2], ymax = latlimits[2])
+
+box = st_bbox(box, crs = crs_original) |> st_as_sfc(tmp)
+
 water    = st_crop(water, box)
 stream   = st_crop(stream, box)
 land     = st_transform(land, crs = crs_original)
@@ -97,6 +100,29 @@ land = land |>
                                   "荒地", "建物用地", "道路",
                                   "鉄道", "その他の用地", "河川地および潮沼",
                                   "ゴルフ場", "海浜", "海水域")))
+land = land |> rename(mesh = メッシュ)
+land2 = land |> filter(st_is_valid(geometry)) |> filter(str_detect(land, "河"))
+lnames = str_glue("st{land2$mesh}")
+dnames = str_glue("st{data$Name}") 
+
+X = st_distance(data, land2)
+dimnames(X) = list(dnames, lnames)
+X[1:3, 1:3]
+
+z = tibble::as_tibble(X, rownames = "dnames") |> 
+  pivot_longer(matches("^st[0-9]+")) |> 
+  group_by(dnames) |> 
+  summarise(value = min(value))
+
+bind_cols(z, data) |> 
+  mutate(present = ifelse(coverage > 0, 1, 0),
+         absent = ifelse(coverage > 0, 0, 1)) |> 
+  ggplot(aes(x = as.numeric(value), y = present / (absent + present), present = present, absent = absent)) +
+  geom_point() +
+  geom_smooth(method = "glm",
+              formula = cbind(present, absent) ~ x,
+              method.args = list(family = binomial))
+  
 
 
 ggplot() + 
@@ -134,6 +160,7 @@ xymaxs = c(32.994864933396116, 129.12874162342598)
 names(xymins) = c("ymin", "xmin")
 names(xymaxs) = c("ymax", "xmax")
 box = c(xymins, xymaxs)
+box = st_bbox(box, crs = crs_original) |> st_as_sfc(tmp)
 
 shpfile  = "~/Lab_Data/Nagasaki_map_data/N03-20210101_42_GML/"
 shpfile2 = "~/Lab_Data/Nagasaki_map_data/W05-07_42_GML/W05-07_42-g_RiverNode.shp"
