@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="" xml:lang="">
   <head>
-    <title>Comparing the dissimilarity of communites</title>
+    <title>Comparing the community structure</title>
     <meta charset="utf-8" />
     <meta name="author" content="Greg Nishihara" />
     <script src="compare_communities_files/header-attrs/header-attrs.js"></script>
@@ -18,11 +18,11 @@
     <textarea id="source">
 class: center, middle, inverse, title-slide
 
-# Comparing the dissimilarity of communites
-## 2021 Tanimae Analysis
+# Comparing the community structure
+## 群集構造の解析：PCAとRDAについて
 ### Greg Nishihara
 ### Aquatic Plant Ecology Lab, Nagasaki University
-### Compiled on: 2021-10-06
+### Compiled on: 2021-10-13
 
 ---
 
@@ -67,8 +67,7 @@ class: center, middle, inverse, title-slide
 
 **制約なしの序列化解析手法**
 
-* 事前に仮設をたてる必要はない。
-* 他変量の予約につかう。
+事前に仮設をたてる必要はない。多変量の要約につかう。
 
 * Principal Component Analysis (PCA) **主成分分析**
 * Correspondence Analysis (CA) **対応分析**
@@ -82,7 +81,8 @@ class: center, middle, inverse, title-slide
 
 **制約ありの序列化解析手法**
 
-Requires a hypotheses, can associate a matrix of observations with predictors.
+仮設をたてる必要がある。群集データと環境変数の関係を調べられる。
+
 * Redundancy Analysis (RDA, linear) **冗長性分析**
 * Canonical Correspondance Analysis (CCA, unimodal)  **正準対応分析**
 * Canonical Correlation Analysis (CCorA or COR)
@@ -168,7 +168,7 @@ r1 = X |&gt; rda(scale = TRUE)
 ## Principal Components Analysis (3)
 
 .panelset[
-.panel[.panel-name[Code]
+.panel[.panel-name[Plot code]
 .small[
 
 
@@ -208,7 +208,7 @@ p1 + p2
 .panel[.panel-name[Plot]
 &lt;img src="compare_communities_files/figure-html/unnamed-chunk-6-1.png" width="100%" /&gt;
 ]
-.panel[.panel-name[Comment]
+.panel[.panel-name[Comments]
 
 * **Distance biplot**
 
@@ -274,7 +274,7 @@ summary(r1, axes = FALSE)
 ]
 .panel[.panel-name[Comments]
 
-* Interia: データにおける分散を示す。このPCAは correlation 行列から求めたので、値は変数の数です。
+* Inertia: データにおける分散を示す。このPCAは correlation 行列から求めたので、値は変数の数です。
 * Constrained / Unconstrained: PCAは制約なしの序列化解析なので、Unconstrained です。
 * Eigenvalue: 固有値は主成分の分散・重要度を示す。
 * Proportion Explained: 主成分ごとの固有値と固有値の和の比率。データの分散に対して、主成分が説明する割合。
@@ -379,7 +379,7 @@ Bray-Curtis 距離（指数）は station `\(j\)` の 種 `\(i\)` と station `\
 **nMDS (Non-metric Multi-Dimensional Scaling): 非計量多次元尺度構成法** は距離の rank（順位）にもとづいて図とつくることです。
 距離の順位を使うので、nMDSはノンパラメトリック手法です。
 ところが、計算方法は反復的に行うので、疑似乱数関数を定義しないと、解析を再現できません。
-店の位置が微妙に変わりますが、点と点の間の関係は大きく変わりません。
+点の位置が微妙に変わりますが、点と点の間の関係は大きく変わりません。
 
 
 ```r
@@ -410,7 +410,7 @@ stressplot の軸は *Ordination Distance* と *Observed Dissimilarity* です�
 ]
 
 ]
-.panel[.panel-name[Code]
+.panel[.panel-name[Plot code]
 
 ```r
 ggplot(Ydout_df) + 
@@ -446,7 +446,7 @@ Stress が低いほど、当てはめがいい。
 
 .pull-right[
 
-* 生物の出現と環境勾配の関係は２種類に分けられます。
+* 生物の出現と環境勾配の関係は 2 種類に分けられます。
   - linear: 直線型
   - unimodal: 一山型
 * 環境勾配が十分取られていたら、生物の出現は基本的に一山型になります。
@@ -456,7 +456,9 @@ Stress が低いほど、当てはめがいい。
 * ところが、Hellinger 変換を用いたら、直線型の解析手法でも使えます。 
 ]
 
-Reference: Legendre &amp; Gallagher. 2001. Ecologically meaningful transformations for ordination of species data. Oecologia 129: 271-280; Lepš &amp; Šmilauer. 2003. Multivariate Analysis of Ecological Data using CANOCO. Cambridge Press
+Reference: 
+[Legendre &amp; Gallagher. 2001. Oecologia 129: 271-280](https://doi.org/10.1007/s004420100716); 
+[Lepš &amp; Šmilauer. 2003. Multivariate Analysis of Ecological Data using CANOCO. Cambridge Press](https://doi.org/10.1017/CBO9780511615146)
 
 ---
 class: center, middle
@@ -510,7 +512,7 @@ anova(r1, by = "terms",  permutations = 999)
 ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 ```
 
-Bootstrap を用いて、変数ごとのP値ももとめられます。
+Bootstrap を用いて、変数ごとのP値も求められます。
 
 ]
 ]
@@ -522,7 +524,7 @@ Bootstrap を用いて、変数ごとのP値ももとめられます。
 RDA の結果を図として示す。
 
 .panelset[
-.panel[.panel-name[Code]
+.panel[.panel-name[Plot code]
 .small[
 
 
@@ -563,7 +565,7 @@ ggarrange(p1,p2,align = "h")
 .panel[.panel-name[Plot]
 &lt;img src="compare_communities_files/figure-html/unnamed-chunk-19-1.png" width="100%" /&gt;
 ]
-.panel[.panel-name[Comment]
+.panel[.panel-name[Comments]
 
 * この結果の場合、Station 1 と 2 は 高い temp_var_mean (水温分散の一日あたりの平均値)、低い s1_day_mean (sediment量の平均値) 、低い pla_100g_day_mean (石膏溶出速度の平均値) との関係が強い (左図）。
 
@@ -699,7 +701,9 @@ Ha |&gt; mutate(Hg) |&gt; mutate(Hb = Hg - Ha) |&gt; group_by(sites) |&gt; summa
 ]
 ]
 
-Reference: Jost. 2006. Oikos 113: 363-375; Jost. 2007. Ecology 88: 2427-2439.
+Reference: 
+[Jost. 2006. Oikos 113: 363-375](https://doi.org/10.1111/j.2006.0030-1299.14714.x); 
+[Jost. 2007. Ecology 88: 2427-2439](https://doi.org/10.1890/06-1736.1).
 ---
 
 ## Station 間の Beta 多様度の求め方 
@@ -721,7 +725,7 @@ BD = BD |&gt; as.tibble(rownames = "station") |&gt;
   pivot_longer(!matches("station")) |&gt; drop_na()
 ```
 ]
-.panel[.panel-name[Figure]
+.panel[.panel-name[Plot code]
 
 ```r
 flabel = "beta*'-diversity'"
@@ -752,7 +756,398 @@ ggplot(BD) +
 ]
 ]
 
-Reference: Koleff, Gaston, Lennon. 2003. Journal of Animal Ecology 72: 367-382.
+Reference: [Koleff, Gaston, Lennon. 2003. Journal of Animal Ecology 72: 367-382](https://doi.org/10.1046/j.1365-2656.2003.00710.x).
+
+---
+class: middle, center
+
+# Example 2: Species richness of macroalgae in the East China Sea
+
+---
+
+## Background
+
+.pull-left[
+
+データのついて
+
+* 調査地点：長島、種子島、徳之島、硫黄鳥島、沖永良部の 209 箇所
+* 調査機関：2002年から2008年
+* 環境要因：イリバレン数
+* 観測値：海藻と海草の有り無し
+
+]
+.pull-right[
+
+Surf similarity number (Iribarren number, イリバレン数) : 砕波形態の指数
+
+`$$\xi = \frac{\tan\theta}{\sqrt{H_{sig}/L_{\infty}}}$$`
+
+* `\(\theta\)`：水深 20 m までの傾斜
+* `\(H_{sig}\)`： 有義波高
+* `\(T\)`： 有義波周期
+* `\(L_{\infty} = \frac{gT^2}{2\pi}\)`
+* `\(g = 9.81~\text{m}^2~\text{s}^{-1}\)`
+]
+
+Nishihara and Terada (2010) の解析は イリバレン数と種数の関係を調べているが、
+ここでは分母と分子を独立した環境要因として預かいます。
+
+References:
+[Nishihara and Terada. 2010. Phycological Research 58: 280-292.](https://doi.org/10.1111/j.1440-1835.2010.00587.x)
+
+---
+
+## Data preparation.
+
+
+```r
+alldata = read_csv("~/Lab_Data/Phycological_Research_2010/complete_dataset_2021.csv")
+```
+
+nagashima は複数回調査したので、種の出現は station ごとにまとめた。
+
+
+
+```r
+alldata2 = alldata |&gt; select(-c(phylum, functional_form)) |&gt; mutate(dummy = 1) |&gt; 
+  pivot_wider(names_from = species, values_from = dummy, values_fill = 0, values_fn = sum)
+alldata2 = alldata2 |&gt; mutate(across(matches("sp[0-9]+"), ~if_else(.x &gt; 0, 1, 0)))
+```
+
+---
+
+## Alpha, Beta, Gamma diversity calculation
+
+調査全域の α、β、γ 多様度の求め方。
+
+.panelset[
+.panel[.panel-name[Simple]
+
+```r
+locations = alldata2 |&gt; pull(location)
+Hg = alldata2 |&gt; select(matches("sp[0-9]+")) |&gt; specpool() |&gt; as_tibble()
+Ha = alldata2 |&gt; select(matches("sp[0-9]+")) |&gt; specpool(locations) |&gt; as_tibble(rownames = "location")
+Ha |&gt; select(location, alpha = Species) |&gt; mutate(gamma = Hg$Species) |&gt; 
+  summarise(across(c(alpha, gamma), mean)) |&gt; mutate(beta = gamma/alpha)
+```
+
+```
+## # A tibble: 1 × 3
+##   alpha gamma  beta
+##   &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+## 1  159.   416  2.61
+```
+
+α多様度は location 内の平均種数、γ多様度は全域の種数です。
+β多様度は location 間の多様性を示しています。
+つまり、各locationの群集の相違度あるいは種の入れ替わりの程度を示している。
+
+$$
+\alpha \rightarrow \gamma \equiv \beta \rightarrow 1
+$$ 
+
+
+]
+.panel[.panel-name[Pair-wise]
+
+β多様性は 2箇所ごとの相違度を求めることもできます（pair-wise、ペアワイズの比較）。
+locationごとの種数を求めたら、Hellinger変換を行って、Lennon-Simpson ベータ指数を求めます (Lennon et al. 2001)。
+
+```r
+tspecies = alldata2 |&gt; select(location, matches("sp[0-9]+")) |&gt; group_by(location) |&gt; summarise(across(everything(), sum)) |&gt; ungroup()
+location = tspecies |&gt; pull(location)
+tspecies = tspecies |&gt; select(matches("sp[0-9]+")) |&gt; as.matrix()
+rownames(tspecies)=location
+BD = tspecies |&gt; decostand("hellinger") |&gt; betadiver(method = "sim") 
+BD = BD |&gt; as.matrix()
+BD[lower.tri(BD)] = NA
+BD[near(BD, 0)] = NA
+BD = BD |&gt; as.tibble(rownames = "location") |&gt; pivot_longer(!matches("location")) |&gt; drop_na()
+```
+
+]
+.panel[.panel-name[Plot code]
+.small[
+
+
+```r
+flabel = "beta[sim]*'-diversity'"
+atext = "beta[sim]~'ranges from 0 to 1 and lower values indicate similarity.'"
+BD |&gt; mutate(across(c(location, name), str_to_title)) |&gt; 
+ggplot() +
+  geom_tile(aes(x = location, y = name, fill = value)) +
+  geom_text(aes(x = location, y = name, label = sprintf("%0.3f", value)), 
+            color = ifelse(BD$value &lt; 0.3, "white", "black"), family = "notosans", 
+            fontface = "bold", size = 3) +
+  annotate("text", x = 4.5, y = 0.5, label = parse(text = atext), family = "notosans", fontface = "bold", size = 3, hjust = 1, vjust = 0) +
+  scale_fill_viridis_c(parse(text = flabel), na.value = "white", breaks = seq(0, 1, by = 0.2), limits = c(0,1)) +
+  guides(fill = guide_colorbar(title.position = "top", label.position = "bottom", draw.llim = T,
+                               barwidth = grid::unit(10, units="char"), barheight = grid::unit(5, units = "mm"))) +
+  theme(axis.title = element_blank(),
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 6),
+        legend.position = c(0.9, 0.2),
+        legend.justification = c(1, 0.5),
+        legend.direction = "horizontal",
+        legend.background = element_blank())
+```
+]
+
+]
+.panel[.panel-name[Plot]
+&lt;img src="compare_communities_files/figure-html/unnamed-chunk-30-1.png" width="100%" /&gt;
+
+]
+]
+
+[Lennon et al. 2001. Journal of Animal Ecology 70: 966-979.](https://doi.org/10.1046/j.0021-8790.2001.00563.x)
+
+---
+
+## PCA of presence - absence data
+
+.panelset[
+.panel[.panel-name[Analysis]
+
+環境要因の影響を含まないの制約なし序列化解析はPCAで行います。
+ここではHellinger 変換した有り無しデータを解析します。
+
+```r
+Y = alldata2 |&gt; select(matches("sp[0-9]+")) |&gt; decostand("hellinger") 
+Ypca = rda(Y ~ 1) # 説明変数が無い時、結果はPCA
+Ypca_df = Ypca |&gt; fortify(scaling = 1) |&gt; as_tibble() |&gt; filter(str_detect(Score, "sites"))
+Ypca_df = Ypca_df |&gt; bind_cols(alldata2 |&gt; select(!matches("sp[0-9]+"))) |&gt; 
+  mutate(location = str_to_title(location))
+centroids = Ypca_df |&gt; group_by(location) |&gt; summarise(across(matches("PC[1-5]"), mean))
+```
+]
+
+.panel[.panel-name[Plot code]
+
+```r
+xlabel = "PC[1]"
+ylabel = "PC[2]"
+ggplot() +
+  geom_vline(xintercept = 0,linetype = "dashed", color = "grey50") +
+  geom_hline(yintercept = 0,linetype = "dashed", color = "grey50") +
+  geom_point(aes(x = PC1, y = PC2, color = location),
+             data = Ypca_df, alpha = 0.5, size = 2) +
+  geom_point(aes(x = PC1, y = PC2, color = location),
+             data = centroids, size = 4)+
+  scale_color_viridis_d(end = 0.9) + 
+  scale_x_continuous(parse(text = xlabel)) + 
+  scale_y_continuous(parse(text = ylabel)) + 
+  guides(color = guide_legend(nrow = 2)) +
+  labs(title = "Distance biplot (scaling = 1)")+
+  theme(legend.position = c(1,1),
+        legend.justification = c(1,1),
+        legend.direction = "horizontal",
+        legend.background = element_blank(),
+        legend.title = element_blank())
+```
+
+]
+.panel[.panel-name[Plot]
+&lt;img src="compare_communities_files/figure-html/unnamed-chunk-32-1.png" width="100%" /&gt;
+
+]
+]
+
+---
+
+## RDA of presence - absence data
+
+.panelset[
+.panel[.panel-name[Analysis]
+環境要因の影響を取り入れた制約ありの序列化解析はRDAで行います。
+環境要因は 20 m水深までの海底の傾斜と `\(\sqrt{H_{sig} / L_{\infty}}\)`です。
+.small[
+
+
+```r
+Y = alldata2 |&gt; select(matches("sp[0-9]+")) |&gt; decostand("hellinger") 
+X = alldata2 |&gt; select(!matches("sp[0-9]+")) |&gt; mutate(hl = sqrt(height / length))
+X = X |&gt; select(!matches("sp[0-9]+"))  |&gt; mutate(across(where(is.numeric) &amp; !station, ~scale(.)[,1]))
+X = X |&gt; mutate(location = str_to_title(location))
+Ypca = rda(Y ~ d20 + hl, data = select(X, !location &amp; !station)) # 説明変数が無い時、結果はPCA
+correlations = X |&gt; select(period, iribarren10) |&gt; cor()
+correlations = correlations[lower.tri(correlations)] # 説明変数間の相関係数
+
+Ypca_df1 = Ypca |&gt; fortify(scaling = 1) |&gt; as_tibble() |&gt; filter(str_detect(Score, "sites"))
+biplot1 = Ypca |&gt; fortify(scaling = 1) |&gt; as_tibble() |&gt; filter(str_detect(Score, "biplot")) |&gt;
+  mutate(Label = recode(Label, d20 = "Slope", hl = "sqrt(H/L)"))
+Ypca_df1 = Ypca_df1 |&gt; bind_cols(X |&gt; select(!matches("sp[0-9]+"))) 
+centroids1 = Ypca_df1 |&gt; group_by(location) |&gt; summarise(across(matches("RDA[1-5]"), mean))
+
+Ypca_df2 = Ypca |&gt; fortify(scaling = 2) |&gt; as_tibble() |&gt; filter(str_detect(Score, "sites"))
+biplot2 = Ypca |&gt; fortify(scaling = 2) |&gt; as_tibble() |&gt; filter(str_detect(Score, "biplot")) |&gt; 
+  mutate(Label = recode(Label, d20 = "Slope", hl = "sqrt(H/L)"))
+Ypca_df2 = Ypca_df2 |&gt; bind_cols(X |&gt; select(!matches("sp[0-9]+"))) 
+radius = calculate_equilibrium(Ypca)
+centroids2 = Ypca_df2 |&gt; group_by(location) |&gt; summarise(across(matches("RDA[1-5]"), mean))
+```
+]
+]
+
+.panel[.panel-name[Plot code]
+.small[
+
+
+```r
+xlabel = "RDA[1]"
+ylabel = "RDA[2]"
+p1 = ggplot() +
+  ggforce::geom_circle(aes(x0 = 0, y0 = 0, r = radius), color = "grey50") +
+  geom_segment(aes(x = 0, y = 0, xend = RDA1, yend = RDA2), data = biplot1, arrow = arrow(15, unit(3, "mm"))) +
+  geom_text(aes(x = 1.5*RDA1,  y = 1.5*RDA2, label = Label), data = biplot1, parse = T)  +
+  geom_point(aes(x = RDA1, y = RDA2, color = location), data = Ypca_df1, alpha = 0.2, size = 2) +
+  scale_color_viridis_d(end = 0.9) + guides(color = "none") + 
+  scale_x_continuous(parse(text = xlabel), limits = c(-0.5, 0.5)) + 
+  scale_y_continuous(parse(text = ylabel), limits = c(-0.5, 0.5)) + 
+  labs(title = "Distance biplot (scaling = 1)")
+p2 = ggplot() +
+  geom_segment(aes(x = 0, y = 0, xend = 0.9*RDA1, yend = 0.9*RDA2), 
+               data = biplot2 ,arrow = arrow(15, unit(3, "mm"))) +
+  geom_segment(aes(x = 0, y = 0, xend = RDA1, yend = RDA2, color = location), 
+               data = centroids2 ,arrow = arrow(15, unit(1, "mm"))) +
+  geom_text(aes(x = 1.1*RDA1,  y = 1.1*RDA2, label = Label), data = biplot2, parse = T)  +
+  geom_point(aes(x = RDA1, y = RDA2, color = location), data = Ypca_df2, alpha = 0.2, size = 2) +
+  geom_point(aes(x = RDA1, y = RDA2, color = location),data = centroids2, size = 4)+
+  scale_color_viridis_d(end = 0.9) + 
+  scale_x_continuous(parse(text = xlabel), limits = c(-1, 1)) + 
+  scale_y_continuous(parse(text = ylabel), limits = c(-1, 1)) + 
+  labs(title = "Correlation biplot (scaling = 2)")  + 
+  theme(legend.position = "top",
+        legend.title = element_blank())
+ggpubr::ggarrange(p1,p2, align = "hv", common.legend = TRUE)
+```
+]
+
+]
+.panel[.panel-name[Plot]
+
+&lt;img src="compare_communities_files/figure-html/unnamed-chunk-34-1.png" width="100%" /&gt;
+
+]
+]
+
+
+---
+
+## Correlations between location and environmental variables
+
+.panelset[
+
+.panel[.panel-name[Correlations]
+
+location と環境要因の相関係数を求める。
+ベクトル間の角度は `\(\mathbf{a}\cdot \mathbf{b}=||\mathbf{a}||\; ||\mathbf{b}||\;\cos\theta\)`
+
+```r
+calc_correlations = function(X, Y) {
+  location = Y |&gt; pull(location)
+  X = X |&gt; select(RDA1, RDA2) |&gt; as.matrix()
+  Y = Y |&gt; select(RDA1, RDA2) |&gt; as.matrix()
+  vec1mag = X %*% t(X) |&gt; diag() |&gt; sqrt()
+  vec2mag = ((Y) %*% t(Y)) |&gt; diag() |&gt; sqrt()
+  vec12mag = (Y) %*% t(X) 
+  theta = ((vec12mag) / (vec1mag * vec2mag)) |&gt; acos() |&gt; as.numeric()
+ tibble(location, theta) |&gt; mutate(cor = 1 - 2 * theta / pi) |&gt; select(location, cor)
+}
+correlations = biplot2 |&gt; group_nest(Label) |&gt; 
+  mutate(out = map(data, calc_correlations, Y = centroids2)) |&gt; 
+  select(-data) |&gt; unnest(out)
+```
+]
+
+.panel[.panel-name[Plot code]
+.small[
+
+```r
+p3 = correlations |&gt; 
+  mutate(location = factor(location), Label = factor(Label)) |&gt; 
+  ggplot() + 
+  geom_vline(xintercept = c(-1, 0, 1), linetype = "dashed", color = "grey50") +
+  geom_hline(yintercept = 1.5, linetype = "dashed", color = "grey50") +
+  geom_col(aes(x = cor, y = Label, fill = location), 
+           position = position_dodge(width = 1),
+           size = 10) +
+  geom_label(aes(x = 0, y = Label, label = sprintf("%0.3f", cor)),
+            position = position_dodge2(width = 1),
+            vjust = 0.5, hjust = ifelse(correlations$cor &gt; 0, 1, 0), 
+            label.padding = unit(0.5, "lines"),
+            label.size = 0,
+            fill = NA,
+            family = "notosans", size = 3, fontface = "bold") +
+  scale_x_continuous("Site - variable correlation") +
+  scale_y_discrete("Variable", labels = scales::label_parse()) + 
+  scale_fill_viridis_d(end = 0.9) +
+  guides(fill = guide_legend(reverse = T)) +
+  theme(legend.position = c(1,1),
+        legend.justification = c(1,1),
+        legend.background = element_blank(),
+        legend.title = element_blank())
+
+ggpubr::ggarrange(p2,p3, align = "hv", common.legend = TRUE)
+```
+]
+]
+
+.panel[.panel-name[Plot]
+&lt;img src="compare_communities_files/figure-html/unnamed-chunk-36-1.png" width="100%" /&gt;
+]
+]
+
+---
+
+## 解析に必要なパッケージ
+
+
+```r
+library(tidyverse) # モダンR信者になるため
+library(lubridate) # 時間データの処理
+library(patchwork) # 作図用
+library(ggpubr)    # 作図用
+library(vegan)   # 多変量解析用
+library(ggvegan) # 多変量解析用
+library(showtext) # フォント用
+```
+
+作図につかったフォントは次のように準備した。
+パッケージを読み込んだあと、実行してください。
+
+
+```r
+font_add_google("Noto Sans","notosans")
+# 図のフォントがからだったので、ここで修正した
+# １）theme_set() をつかってデフォルトのフォントをかえる
+# ２）ggplot() の theme() からとんとの指定をはずす。
+theme_pubr(base_size = 10, base_family = "notosans") |&gt; theme_set()
+showtext_auto()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     </textarea>
 <style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
 <script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>

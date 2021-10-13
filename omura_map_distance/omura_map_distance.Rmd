@@ -68,7 +68,7 @@ library(rstanarm)
 library(tidybayes)
 options(knitr.kable.NA = '')
 options(kableExtra.latex.load_packages = FALSE, tidyverse.quiet = TRUE)
-font_add_google("Noto Sans","notosans")
+font_add_google("Noto Sans JP","notosans")
 # 図のフォントがからだったので、ここで修正した
 # １）theme_set() をつかってデフォルトのフォントをかえる
 # ２）ggplot() の theme() からとんとの指定をはずす。
@@ -82,28 +82,37 @@ showtext_auto()
 
 ```{r}
 library(ggspatial) # North Arrow の関数
+library(sfheaders)
 library(sf)
 ```
 
 
 ---
+class: center, middle
 
-## Prepare data
+# Prepare data from survey
 
-データはExcelで集計され、日本語を含むので、文字コードに注意。
-このとき、sjis でした。
+---
+
+## Data preparation
+
+データは Excel で集計されている。
+日本語を含むので、文字コードに注意。
+このとき、SJIS でした。
 
 ```{r}
 data = read_csv("~/Lab_Data/matsumuro/longlat_info.csv", locale = locale(encoding = "sjis"))
 ```
 
-`eelgrass`変数は論理値に変換し、`coverage (%)`変数名も変える。
+`eelgrass` 変数は論理値に変換し、`coverage (%)` 変数名を `coverage` に変換する。
 
 ```{r}
-data = data |> rename(coverage = matches("cover")) |> 
+data = data |> 
+  rename(coverage = matches("cover")) |> 
   mutate(eelgrass = ifelse(coverage > 0, T, F))
 ```
 
+**Note: 文字コードは UTF8、データは必ず CSV ファイルとして保存すること。**
 
 ---
 
@@ -119,37 +128,51 @@ data = data |>
   mutate(rank = ifelse(coverage >40, 2, rank)) |> 
   mutate(rank = ifelse(coverage >95, 1, rank)) |> 
   mutate(rank = factor(rank, levels = 1:5, labels = LETTERS[1:5]))
+
+# dplyr::case_when() の使い方
+data = data |> mutate(rank = case_when(coverage > 95 ~ 1,
+                                       coverage > 40 ~ 2,
+                                       coverage > 25 ~ 3,
+                                       coverage > 5 ~ 4,
+                                       TRUE ~ 5)) |> 
+  mutate(rank = factor(rank, levels = 1:5, labels = LETTERS[1:5]))
 ```
 
 Reference: McKenzie. 2003. Guidelines for the rapid assessment of seagrass habitats in the western Pacific.
 
 ---
+class: center, middle
+
+# Map creation
+
+---
 
 ## Prepare map -- Google Earth version
 
-図は Google Earth 上に描いたポリゴンでつくる。
+図は Google Earth 上に描いたポリゴンの kml ファイルから作ります。
 
 ```{r}
 kml = "~/Lab_Data/matsumuro/Katagami_Bay/Katagami_Bay.kml"
 katagami = st_read(kml)  # KMLファイルを読み込む
-katagami = st_zm(katagami) # z の座標をはずす（重要）
+katagami = st_zm(katagami) # Z の座標を外す（重要）
 katagami_bay = st_union(katagami)
 ```
 
 Google Earth の座標は WGS84 です。
 データと地図の座標を合わせないと位置がずれます！
 
+---
+
+## Add GPS reference system to data coordinates
+
+Google Earth の座標を抽出する (Geodetic CRS: WGS84)。
+
 ```{r}
-# もとの座標を保存する
-# 重要：Geodetic CRS: WGS84
 crs_original = st_crs(katagami)
 ```
 
----
 
-## Add coordinates to data
-
-観測データのGPS情報に、WGS84 座標を適応する。
+観測データのGPS情報に抽出した座標をを適応する。
 
 ```{r}
 data = st_as_sf(data, coords = c("long", "lat"), crs = crs_original)
@@ -163,7 +186,7 @@ data = st_as_sf(data, coords = c("long", "lat"), crs = crs_original)
 .panel[.panel-name[Code]
 ```{r map1, eval = F}
 ggplot() + 
-  geom_sf(data = katagami_bay) +
+  geom_sf(data = katagami_bay, linetype = 0, fill = "blue") +
   labs(title = "Katagami Bay, Nagasaki, Japan",
        subtitle = "May - June 2021")
 ```
@@ -204,8 +227,7 @@ ggplot() +
                                     height = unit(30, "mm"),
                                     width = unit(30, "mm"))+
   scale_color_viridis_d(end = 0.9, drop = F, option = "C") +
-  labs(title = "Katagami Bay, Nagasaki, Japan",
-       subtitle = "May - June 2021") +
+  labs(title = "Katagami Bay, Nagasaki, Japan10subtitle = "May - June 2021") +
   theme(text = element_text(size = 20),
     legend.position = c(1,1),
         legend.justification = c(1,1),
