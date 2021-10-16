@@ -1,4 +1,5 @@
 # 有川湾のアマモ場
+# 更新日：2021年10月14日
 # 2021年8月6日
 # Greg
 #Load packages
@@ -11,326 +12,215 @@ library(magick)
 library(showtext)
 library(readxl)
 library(patchwork)
+library(mgcv)
+library(lemon)
+library(vegan)
+library(ggpubr)
 
-#plots
-color=viridis::viridis(6)
-font_add_google("Noto Sans JP","notosans-jp")
+# Ranking method
+# Aが71〜100%
+# Bが41〜70％
+# Cが11〜40%
+# Dが1〜11%
+# Eが0%
+
 font_add_google("Noto Sans","notosans")
 # 図のフォントがからだったので、ここで修正した
 # １）theme_set() をつかってデフォルトのフォントをかえる
 # ２）ggplot() の theme() からとんとの指定をはずす。
-theme_set(text = element_text(family = "notosans-jp"))
+theme_pubr(base_size = 10, base_family = "notosans") |> theme_set()
 showtext_auto()
 
 #read data file
-filename="~/Lab_Data/kabeyamam/arikawa_amamo_line.xlsx"
-esheet=excel_sheets(filename) #xlsxのファイルのシート名
+afile = "~/Lab_Data/kabeyamam/arikawa_amamo_line.xlsx"
+gfile = "~/Lab_Data/kabeyamam/arikawa_garbage.xlsx"
+
+asheet=excel_sheets(afile) #xlsxのファイルのシート名
+gsheet=excel_sheets(gfile) #xlsxのファイルのシート名
+
+adata = tibble(asheet) |> 
+  mutate(data = map(asheet, function(sheet) {
+    read_xlsx(afile, sheet = sheet, col_types = "text") |> 
+      select(!matches("[...]")) 
+  })) |> unnest(data)
 
 
-d1=read_xlsx(filename, sheet = esheet[1],
-             col_types = "text")
-d2=read_xlsx(filename, sheet = esheet[2],
-             col_types = "text")
-d3=read_xlsx(filename, sheet = esheet[3],
-             col_types = "text")
+gdata = tibble(gsheet) |> 
+  filter(str_detect(gsheet, "^[0-9]+$")) |> 
+  mutate(data = map(gsheet, function(sheet){
+    read_xlsx(gfile, sheet = sheet, col_types = "text") 
+  })) |> unnest(data)
 
-#d1の処理はここから
-d1=d1 |> select(matches("ライン|距離|時刻|アマモ"))
-d1=d1 |> pivot_longer(cols=everything())
 
-d1=d1 |> 
-  mutate(line=str_extract(name,"[0-9]+$")) |> 
-  mutate(line=as.numeric(line))
-d1=d1 |> 
-  mutate(name=str_remove(name,"[0-9]+$"))
-d1=d1 |> pivot_wider(names_from = name, values_from = value) |> 
-  unnest(everything())
-d1=d1 |> 
-  mutate(距離=str_extract(距離,"[0-9]+")) |> 
-  mutate(距離=as.numeric(距離)) |> 
-  mutate(アマモ=factor(アマモ))
-d1b=d1 |> 
-  mutate(アマモ=str_remove(アマモ,"orB"))
+# 全角数字があるとこまる。
+# 全角数字は stringi::stri_trans_nfkc() で半角に変換する。
+adata = adata |> 
+  mutate(across(matches("ライン"), as.numeric)) |> 
+  mutate(month = ymd(asheet), .after = asheet) |> 
+  mutate(month = floor_date(month) |> as_date()) |> 
+  mutate(across(matches("距離"), ~str_extract(.x, "[0-9]+") |> as.numeric())) |> 
+  select(month, matches("アマモ"), matches("距離")) |> 
+  pivot_longer(!month,
+               names_to = c(".value", "id"),
+               names_pattern="(.).*(.)") |> 
+  mutate(id = stringi::stri_trans_nfkc(id) |> as.numeric()) |> 
+  rename(rank =　ア, distance = 距, line = id) |> 
+  mutate(month = month.abb[month(month)]) |> 
+  mutate(line = 5 * (line -1),
+         rank = factor(rank),
+         month_fct = factor(month,
+                            levels = month.abb[c(5:12, 1:4)])) |> 
+  drop_na()
 
-#d2の処理はここから
-d2=d2 |> select(matches("ライン|距離|時刻|アマモ"))
-d2=d2 |> pivot_longer(cols=everything())
-d2=d2 |> 
-  mutate(line=str_extract(name,"[0-9]+$")) |> 
-  mutate(line=as.numeric(line))
-d2=d2 |> 
-  mutate(name=str_remove(name,"[0-9]+$"))
-d2=d2 |> pivot_wider(names_from = name, values_from = value) |> 
-  unnest(everything())
-d2=d2 |> 
-  mutate(距離=str_extract(距離,"[0-9]+")) |> 
-  mutate(距離=as.numeric(距離)) |> 
-  mutate(アマモ=factor(アマモ))
-d2b=d2 |> 
-  mutate(アマモ=str_remove(アマモ,"orC")) |> 
-  mutate(アマモ=ifelse(str_detect(アマモ,"^T$"),NA,アマモ))
 
-d3=d3 |> select(matches("ライン|距離|時刻|アマモ"))
-d3=d3 |> pivot_longer(cols=everything())
-d3=d3 |> 
-  mutate(line=str_extract(name,"[0-9]+$")) |> 
-  mutate(line=as.numeric(line))
-d3=d3 |> 
-  mutate(name=str_remove(name,"[0-9]+$"))
-d3=d3 |> pivot_wider(names_from = name, values_from = value) |> 
-  unnest(everything())
-d3=d3 |> 
-  mutate(距離=str_extract(距離,"[0-9]+")) |> 
-  mutate(距離=as.numeric(距離)) |> 
-  mutate(アマモ=factor(アマモ))
+gdata = gdata |> print(n = 540) |> 
+  mutate(month = ym(day) |> as_date(),
+         mass = as.numeric(Weight)) |> 
+  select(month, place, type, mass)
 
 
 
-
-##########################################################
-#plot
-
-p1=ggplot()+
-  geom_tile(aes(y=距離,
-                x=line,
-                fill=アマモ),
-            data=d1b)+
-  annotate(geom = "text",
-           x=1,
-           y=166,
-           label="Seawall side",
-           vjust=0,hjust=0,
-           color="white")+
-  annotate(geom = "text",
-           x=6,
-           y=166,
-           label="Entrance to seagrass meadow",
-           vjust=0,hjust=1,
-           color="white")+
-  
-  scale_y_continuous(name="Distance (m)",
-                     trans="reverse",
-                     limits=c(170,100),
-                     breaks = seq(170,100,
-                                  by=-10))+
-  scale_x_discrete(name="Transect")+
-  scale_fill_manual(name="Coverage",
-                    values = rev(color[-6]))
-
-p2=ggplot()+
-  geom_tile(aes(y=距離,
-                x=line,
-                fill=アマモ),
-            data=d2b)+
-  annotate(geom = "text",
-           x=1,
-           y=166,
-           label="Seawall side",
-           vjust=0,hjust=0,
-           color="white")+
-  annotate(geom = "text",
-           x=11,
-           y=166,
-           label="Entrance to seagrass meadow",
-           vjust=0,hjust=1,
-           color="white")+
-  
-  scale_y_continuous(name="Distance (m)",
-                     trans="reverse",
-                     limits=c(170,100),
-                     breaks = seq(170,100,
-                                  by=-10))+
-  scale_x_discrete(name="Transect")+
-  scale_fill_manual(name="Coverage",
-                    values = rev(color[-6]))
-
-p3=ggplot()+
-  geom_tile(aes(y=距離,
-                x=line,
-                fill=アマモ),
-            data=d3)+
-  annotate(geom = "text",
-           x=1,
-           y=166,
-           label="Seawall side",
-           vjust=0,hjust=0,
-           color="white")+
-  annotate(geom = "text",
-           x=11,
-           y=166,
-           label="Entrance to seagrass meadow",
-           vjust=0,hjust=1,
-           color="white")+
-  
-  scale_y_continuous(name="Distance (m)",
-                     trans="reverse",
-                     limits=c(170,100),
-                     breaks = seq(170,100,
-                                  by=-10))+
-  scale_x_discrete(name="Transect")+
-  scale_fill_manual(name="Coverage",
-                    values = rev(color[-6]))
-
-p1+p2
-p1/p2/p3
-
-#d1b+d2b
-d1b=d1b |> mutate(month=5)
-d2b=d2b |> mutate(month=6)
-d3=d3 |> mutate(month=7)
-
-dall=bind_rows(d1b,d2b,d3) |> 
-  mutate(month=factor(month,
-                      levels=1:12,
-                      labels=month.abb[1:12]))
-
-ggplot(dall)+
-  geom_tile(aes(x=line,y=距離,fill=アマモ))+
+ggplot(adata)+
+  geom_tile(aes(x = line, y = distance, fill = rank)) +
+  scale_x_continuous("Distance (m)",
+                     breaks=seq(0, 50, by = 25),
+                     limits = c(-5, 55))+
   scale_y_continuous("Distance (m)",
                      trans = "reverse",
-                     breaks=seq(170,100,by=-10),
-                     limits = c(170,100))+
-  scale_fill_manual(values = rev(color[-6]))+
-  facet_grid(rows=vars(month))
+                     breaks=seq(170, 100, by=-10),
+                     limits = c(170, 100)) +
+  scale_fill_viridis_d(name = "Coverage", direction = -1, option = "B") +
+  facet_grid(cols=vars(month_fct))
 
-wh=aseries(6)
-plotname="kabeyama_all.pdf"
-ggsave(filename = plotname,
-       width=wh[2],
-       height = wh[1],units="mm")
+library(mgcv)
+# ocat() の場合、説明は整数に変換する
+adata = adata |> mutate(rank2 = as.integer(rank))
+K = adata |> pull(rank2) |> max()
+ctrl = gam.control(nthreads = 5)
 
-image_read_pdf(plotname) |> 
-  image_resize("500x") |> 
-  image_write(str_replace(plotname,"pdf","png"))
+# Null model (no month effect)
+mout0 = gam(rank2 ~ t2(line, distance, bs = c("ts", "ts"), k = c(10, 30)), 
+            data = adata, family = ocat(R = K), 
+            method = "ML", control = ctrl)
 
-# analysis
- 
-dall02 = dall |> filter(str_detect(month, "May", negate = TRUE))
+# Full model (month effect)
+mout1 = gam(rank2 ~ t2(line, distance, by = month_fct, bs = c("ts", "ts"), k = c(10, 30)) + month_fct, 
+            data = adata, family = ocat(R = K), 
+            method = "ML", control = ctrl)
 
-dall02 =
-  dall02 |> 
-  mutate(line2 = sprintf("L%02d", line)) |> 
-  mutate(line = line * 5) 
+AIC(mout0, mout1)
 
+# mout0のAICが最も低かったので、REMLで当てはめる
+mout0 = gam(rank2 ~ t2(line, distance, bs = c("ts", "ts"), k = c(10, 30)), 
+            data = adata, family = ocat(R = K), 
+            method = "REML", control = ctrl)
 
-dall02 = dall02 |> mutate(amamo = as.numeric(as.factor(アマモ)))
-
-dall02 = dall02 %>% 
-  select(line, distance = 距離, amamo = アマモ, month) %>% 
-  mutate(amamo = factor(amamo, ordered = T))
-
-################################################################################
-library(brms)
-library(tidybayes)
-library(ggnewscale)
-mgcv::t2()
-seed = 2020
-chains = 4
-cores = chains
-ctrl = list(adapt_delta = 0.99)
-bmodel1 = bf(amamo ~ t2(line, distance, bs = "ts", k = c(10, 30), by = month) + month) + cumulative()
-
-get_prior(bmodel1, data = dall02)
-prior = c(prior(normal(0, 2), class = b),
-          prior(student_t(3, 0, 2.5), class = Intercept),
-          prior(student_t(3, 0, 2.5), class = sds))
-
-bout1 = brm(bmodel1, data = dall02,
-            prior = prior,
-            seed = seed,
-            chains = chains, 
-            cores = cores,
-            control = ctrl)
-
-## Posterior predictive check
-pp_check(bout1)
-
-pdata = dall02 %>% 
+pdata = adata |>  
   tidyr::expand(line = seq(min(line), max(line), length = 25),
                 distance = seq(min(distance), max(distance), length = 25),
-                month = c("Jun", "Jul"))
+                month_fct = month.abb[5:8])
 
-pdata = pdata %>% add_fitted_draws(model = bout1)
+pmat = predict(mout0, newdata = pdata, type = "response")
+pmat = pmat |> as_tibble()
 
-pdata = pdata %>% mutate(.category = factor(.category, levels = 1:5, labels = LETTERS[1:5]))
+pdata = bind_cols(pdata, pmat) |> 
+  pivot_longer(cols = starts_with("V"))
 
-pdata = pdata %>% ungroup() %>% mutate(amamo = factor(.category, ordered = T))
-
-pdata2 = pdata %>% group_by(line, distance, month, amamo) %>% 
-  mean_hdci(.value)
-
-ggplot(pdata2) + 
-  geom_tile(aes(x = line, y = distance), data = dall02) +
-  geom_contour(aes(x = line, 
-                          y = distance, 
-                          z = .value,
-                   color = after_stat(level)), 
-                      bins = 10, size = 1) + 
-  scale_color_viridis_c("Probability", direction = -1) + 
-  scale_y_continuous("Distance (m)",
-                     trans = "reverse",
-                     breaks=seq(170,100,by=-10),
-                     limits = c(170,100))+
-  scale_x_continuous("Distance (m)",
-                     breaks = seq(0, 50, by = 25),
-                     limits = c(0, 50)) +
-  facet_grid(cols = vars(amamo),
-             rows = vars(month),as.table = FALSE) +
-  theme(legend.background = element_blank(),
-        legend.position = c(0.0, 0.5),
-        legend.justification = c(0, 0.5),
-        legend.direction = "horizontal")
+pdata = pdata |> 
+  mutate(rank = factor(name, levels = str_glue("V{1:5}"),  labels = LETTERS[1:5]))
 
 
-wh=aseries(5)
-plotname="kabeyama_model.pdf"
+labelit = function(x) {
+  case_when(x == "A" ~ "A (>70%)",
+            x == "B" ~ "B (>40%)",
+            x == "C" ~ "C (>10%)",
+            x == "D" ~ "D (>1%)",
+            TRUE~ "E (0%)")
+}
+
+ggplot() + 
+  geom_contour_filled(aes(x = line, y = distance, z = value, 
+                          fill = after_stat(level)),
+                      bins = 10, data = pdata) +
+  geom_point(aes(x = line, y = distance), data = adata,  size = 0.5, color = "grey70") +
+  scale_fill_viridis_d(name = "Probability", end = 0.9, option = "A") +
+  scale_y_continuous("Along transect (m)", trans = "reverse", breaks = seq(166, 100, length = 4), 
+                     limits = c(166, 100))+
+  scale_x_continuous("Across transect (m)", breaks = seq(0, 50, by = 25), limits = c(0, 50)) +
+  guides(fill = guide_legend(ncol = 3, byrow=F), color = "none") +
+  facet_rep_wrap(facets = vars(rank), labeller = as_labeller(labelit)) +
+  labs(title = "May to August 2021 seagrass coverage at Arikawa Bay, Nagasaki, Japan") +
+  theme(strip.background = element_rect(color = NA),
+        legend.position = c(0.82,0.25),
+        legend.justification = c(0.5, 0.5),
+        legend.background = element_blank())
+
+wh = gnnlab::aseries(5)
+plotname = "kabeyama_all.pdf"
 ggsave(filename = plotname,
-       width=wh[2],
-       height = wh[1],units="mm")
-
+       width = wh[2],
+       height = wh[1], units="mm")
 image_read_pdf(plotname) |> 
-  image_resize("1000x") |> 
+  image_resize("1500x") |> 
   image_write(str_replace(plotname,"pdf","png"))
 
 
+gdata = gdata |> 
+  mutate(type = str_replace(type, "・", "/")) |> 
+  mutate(month = month.abb[month(month)]) |> 
+  mutate(place = factor(place),
+         type= factor(type),
+         month_fct = factor(month,
+                            levels = month.abb[c(5:12, 1:4)])) 
+
+area = adata |> 
+  group_by(line, distance) |> 
+  summarise(seagrass = sum(ifelse(str_detect(rank, "E"), 0, 1))) |> 
+  ungroup() |> 
+  mutate(seagrass = ifelse(seagrass > 0, 1, 0)) |> 
+  mutate(sand = 1-seagrass) |> 
+  summarise(across(c(seagrass, sand), sum)) |> 
+  mutate(across(c(seagrass, sand), ~.x * 5 * 2))
+area = area |> gather()
+
+gdata |> 
+  full_join(area, by = c("place" = "key")) |> ungroup() |> 
+  group_by(place) |> 
+  summarise(mass = 1000*sum(mass/value))
 
 
+gdata2 = gdata |> 
+  full_join(area, by = c("place" = "key")) |> ungroup() |> 
+  mutate(group = ifelse(str_detect(type, "net|cloth"), "Fisheries debris", "Other")) |> 
+  mutate(mass = 1000 * mass/value) |> 
+  group_by(place, group) |> 
+  summarise(mass = sum(mass)) |> 
+  mutate(place = str_to_sentence(place)) 
 
+ylabel = "'Density'~(g~m^{-2})"
+ggplot(gdata2) + 
+  geom_col(aes(x = group, y = mass, fill = place), position = position_dodge2()) +
 
+    geom_label(aes(x = group, y = mass, label = sprintf("%0.1f~g~m^{-2}", mass)),
+               parse = T,
+               position = position_dodge2(width = 0.9),
+               size = 5, family = "notosans", fontface = "bold",
+              label.size = 0, fill = NA,
+             vjust = 0, hjust = 0.5) +
+  scale_fill_viridis_d(end = 0.9) +
+  scale_x_discrete("Collected debris") +
+  scale_y_continuous(parse(text = ylabel), limits = c(0, 60)) +
+  labs(title = "May to August 2021, Arikawa Bay, Nagasaki, Japan") +
+  theme(legend.position = c(1,1),
+        legend.justification = c(1,1),
+        legend.title = element_blank(),
+        legend.background = element_blank())
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+wh = gnnlab::aseries(5)
+plotname = "kabeyama_debris.pdf"
+ggsave(filename = plotname,
+       width = wh[2],
+       height = wh[1], units="mm")
+image_read_pdf(plotname) |> 
+  image_resize("1500x") |> 
+  image_write(str_replace(plotname,"pdf","png"))

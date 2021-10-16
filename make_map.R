@@ -5,7 +5,8 @@ library(lubridate)
 library(magick)
 library(showtext)
 library(ggpubr)
-font_add_google("Noto Sans JP","notosans")
+font_add_google("Noto Sans","notosans")
+# font_add_google("Noto Sans JP","notosans")
 # 図のフォントがからだったので、ここで修正した
 # １）theme_set() をつかってデフォルトのフォントをかえる
 # ２）ggplot() の theme() からとんとの指定をはずす。
@@ -45,7 +46,12 @@ data = data |> mutate(rank = case_when(coverage > 95 ~ 1,
                                        coverage > 5 ~ 4,
                                        TRUE ~ 5)) |> 
   mutate(rank = factor(rank, levels = 1:5, labels = LETTERS[1:5]))
-
+data = data |> mutate(rank = case_when(coverage > 70 ~ 1,
+                                       coverage > 40 ~ 2,
+                                       coverage > 10 ~ 3,
+                                       coverage >  1~ 4,
+                                       TRUE ~ 5)) |> 
+  mutate(rank = factor(rank, levels = 1:5, labels = LETTERS[1:5]))
 
 # gsi = tibble(xml = dir("~/Lab_Data/Japan_map_data/FG/", full.names = TRUE)) |>
 #   mutate(fname = basename(xml)) |>
@@ -90,18 +96,29 @@ data 　　= st_as_sf(data, coords = c("long", "lat"), crs = crs_original)
 # labels は国土交通省のサイトからです。
 # https://nlftp.mlit.go.jp/ksj/gml/codelist/LandUseCd-09.html
 # 海水域が最後の因子になるように、並べている。
+# land = land |> 
+#   mutate(land = factor(`土地利用種`,
+#                        levels = c("0100", "0200", "0500",
+#                                   "0600", "0700", "0901",
+#                                   "0902", "1000", "1100",
+#                                   "1600", "1400", "1500"),
+#                        labels = c("田", "その他農地", "森林",
+#                                   "荒地", "建物用地", "道路",
+#                                   "鉄道", "その他の用地", "河川地および潮沼",
+#                                   "ゴルフ場", "海浜", "海水域")))
+
 land = land |> 
   mutate(land = factor(`土地利用種`,
                        levels = c("0100", "0200", "0500",
                                   "0600", "0700", "0901",
                                   "0902", "1000", "1100",
                                   "1600", "1400", "1500"),
-                       labels = c("田", "その他農地", "森林",
-                                  "荒地", "建物用地", "道路",
-                                  "鉄道", "その他の用地", "河川地および潮沼",
-                                  "ゴルフ場", "海浜", "海水域")))
+                       labels = c("Agriculture", "Agriculture", "Forest",
+                                  "Urban", "Urban", "Urban",
+                                  "Urban", "Other", "Freshwater",
+                                  "Golf course", "Beach", "Marine")))
 land = land |> rename(mesh = メッシュ)
-land2 = land |> filter(st_is_valid(geometry)) |> filter(str_detect(land, "河"))
+land2 = land |> filter(st_is_valid(geometry)) |> filter(str_detect(land, "Freshwater"))
 lnames = str_glue("st{land2$mesh}")
 dnames = str_glue("st{data$Name}") 
 
@@ -114,6 +131,7 @@ z = tibble::as_tibble(X, rownames = "dnames") |>
   group_by(dnames) |> 
   summarise(value = min(value))
 
+
 bind_cols(z, data) |> 
   mutate(present = ifelse(coverage > 0, 1, 0),
          absent = ifelse(coverage > 0, 0, 1)) |> 
@@ -121,24 +139,44 @@ bind_cols(z, data) |>
   geom_point() +
   geom_smooth(method = "glm",
               formula = cbind(present, absent) ~ x,
-              method.args = list(family = binomial))
-  
+              method.args = list(family = binomial),
+              color = "black") +
+  scale_x_continuous("Distance from nearest river (m)", limits = c(0, 2500)) +
+  scale_y_continuous("Probability of occurrence")
 
+wh = gnnlab::aseries(5)  
+library(magick)
+pdfname = "katagami_bay_glm.pdf"
+pngname = str_replace(pdfname, "pdf", "png")
+ggsave(pdfname, height = wh[1], width = wh[1], units = "mm")
+img = image_read_pdf(pdfname, density = 300)
+img |> image_trim() |> image_border("white", "20x20") |> image_resize("500x") |> 
+  image_write(pngname)
+
+labelit = function(x) {
+  case_when(x == "A" ~ "A (>70%)",
+            x == "B" ~ "B (>40%)",
+            x == "C" ~ "C (>10%)",
+            x == "D" ~ "D (>1%)",
+            TRUE~ "E (0%)")
+}
+
+data = data |> 
+  mutate(rank = labelit(rank))
 
 ggplot() + 
   geom_sf(aes(fill = land), data = land, alpha = 0.5, linetype = 0, size = 0) +
   geom_sf(data = nagasaki, size = 2, alpha = 0, color = "black") +
   geom_sf(data = stream, size = 1) +
   geom_sf(aes(color = rank), data = data, size = 10, alpha = 0.9) +
-  scale_color_viridis_d(end = 0.9, drop = F, option = "C") +
-  scale_fill_viridis_d("土地利用", end = 0.9, direction = -1, option = "D") + 
+  scale_color_viridis_d("Coverage", end = 0.9, drop = F, option = "C") +
+  scale_fill_viridis_d("Land use", end = 0.9, direction = -1, option = "D") + 
   annotation_north_arrow(style = north_arrow_minimal(text_size = 30, text_face = "bold"), 
                          height = unit(30, "mm"), width = unit(30, "mm")) +
   coord_sf(xlim = lonlimits, ylim = latlimits, expand = F) +
-  labs(title = "Katagami Bay, Nagasaki, Japan", subtitle = "May - June 2021") +
+  # labs(title = "Katagami Bay, Nagasaki, Japan", subtitle = "May - June 2021") +
   theme(text = element_text(size = 20),
         legend.position = "right",
-        legend.title = element_blank(),
         legend.background = element_blank(),
         axis.text = element_blank(),
         axis.title = element_blank(),
@@ -148,10 +186,29 @@ ggplot() +
 library(magick)
 pdfname = "katagami_bay.pdf"
 pngname = str_replace(pdfname, "pdf", "png")
-ggsave(pdfname, height = 300, width = 200, units = "mm")
+ggsave(pdfname, height = wh[1]*2, width = wh[1]*2, units = "mm")
 img = image_read_pdf(pdfname, density = 300)
 img |> image_trim() |> image_border("white", "20x20") |> image_resize("500x") |> 
   image_write(pngname)
+
+
+img1 = image_read_pdf("katagami_bay.pdf", density = 300)
+img1 = img1 |> image_trim() |> image_border("white", "20x20") |> image_resize("x1000") 
+img2 = image_read_pdf("katagami_bay_glm.pdf", density = 300)
+img2 = img2 |> image_trim() |> image_border("white", "20x20") |> image_resize("x1000") 
+
+image_append(c(img2, img1)) |> 
+  image_border(color = "white", geometry = "x80") |> 
+  image_annotate("May - June 2021 Katagami Bay, Nagasaki, Japan",
+                 font = "Noto Sans",
+                 gravity = "northwest", size = 50) |> 
+  image_trim() |> 
+  image_border(color = "white", geometry = "10x10") |> 
+  image_write("katagami_bay_all.png")
+
+
+
+
 
 
 # 有川湾 #######################################################################
